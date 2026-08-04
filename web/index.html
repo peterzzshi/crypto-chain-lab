@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Encryption Algorithms Demo</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link data-trunk rel="copy-dir" href="css">
+    <link data-trunk rel="copy-dir" href="js">
+    <link data-trunk rel="copy-dir" href="pkg">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔐 Encryption Algorithms Demo</h1>
+            <p class="subtitle">Interactive visualisation of cryptographic algorithms with step-by-step calculations</p>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-button active" data-tab="rsa">RSA Encryption</button>
+            <button class="tab-button" data-tab="sha256">SHA-256 Hashing</button>
+            <button class="tab-button" data-tab="weierstrass">ECC Weierstrass</button>
+            <button class="tab-button" data-tab="secp256k1">secp256k1</button>
+        </div>
+
+        <!-- RSA Panel -->
+        <div id="rsa-panel" class="panel">
+            <h2 style="margin-bottom: 1rem;">RSA Public-Key Encryption</h2>
+            <p style="color: #888; margin-bottom: 1.5rem;">
+                Enter a message and two prime numbers. Text input uses block encoding — each chunk of
+                ⌊(n.bits()−1)/8⌋ bytes is encrypted as a separate RSA operation, supporting arbitrary-length input.
+            </p>
+
+            <div class="input-group">
+                <div class="input-field">
+                    <label for="rsa-message">Message (text or number)</label>
+                    <input type="text" id="rsa-message" placeholder="Hi" value="Hi" maxlength="64">
+                </div>
+                <div class="input-field">
+                    <label for="rsa-p">Prime p</label>
+                    <input type="text" id="rsa-p" placeholder="251" value="251">
+                </div>
+                <div class="input-field">
+                    <label for="rsa-q">Prime q</label>
+                    <input type="text" id="rsa-q" placeholder="241" value="241">
+                </div>
+            </div>
+
+            <button class="run-button" id="rsa-run-btn">
+                🔐 Encrypt &amp; Decrypt
+            </button>
+
+            <div id="rsa-results" class="results"></div>
+        </div>
+
+        <!-- SHA-256 Panel -->
+        <div id="sha256-panel" class="panel hidden">
+            <h2 style="margin-bottom: 1rem;">SHA-256 Cryptographic Hash</h2>
+            <p style="color: #888; margin-bottom: 1.5rem;">
+                Enter any message to compute its SHA-256 hash. See the preprocessing, compression rounds, and final hash computation.
+            </p>
+
+            <div class="input-group">
+                <div class="input-field" style="grid-column: 1 / -1;">
+                    <label for="sha256-message">Message</label>
+                    <textarea id="sha256-message" rows="3" placeholder="Hello, World!">Hello, World!</textarea>
+                </div>
+            </div>
+
+            <button class="run-button" id="sha256-run-btn">
+                🔑 Compute Hash
+            </button>
+
+            <div id="sha256-results" class="results"></div>
+        </div>
+
+        <!-- ECC Weierstrass Panel -->
+        <div id="weierstrass-panel" class="panel hidden">
+            <h2 style="margin-bottom: 1rem;">ECC Short Weierstrass — E(𝔽ₚ): y²≡x³+ax+b (mod p)</h2>
+            <p style="color: #888; margin-bottom: 1.5rem;">
+                Arbitrary short Weierstrass curve over a prime field 𝔽ₚ (p ≤ 65521). Group order n is
+                auto-computed by point enumeration (Euler's criterion, O(p·log p)). Defaults: E(𝔽₁₁) with G=(2,7), n=13.
+            </p>
+
+            <div class="input-group">
+                <div class="input-field">
+                    <label for="weierstrass-p">Prime p (≤ 65521)</label>
+                    <input type="text" id="weierstrass-p" placeholder="11" value="11" maxlength="5">
+                </div>
+                <div class="input-field">
+                    <label for="weierstrass-a">Coefficient a</label>
+                    <input type="text" id="weierstrass-a" placeholder="1" value="1" maxlength="10">
+                </div>
+                <div class="input-field">
+                    <label for="weierstrass-b">Coefficient b</label>
+                    <input type="text" id="weierstrass-b" placeholder="6" value="6" maxlength="10">
+                </div>
+                <div class="input-field">
+                    <label for="weierstrass-gx">Generator Gx</label>
+                    <input type="text" id="weierstrass-gx" placeholder="2" value="2" maxlength="10">
+                </div>
+                <div class="input-field">
+                    <label for="weierstrass-gy">Generator Gy</label>
+                    <input type="text" id="weierstrass-gy" placeholder="7" value="7" maxlength="10">
+                </div>
+                <div class="input-field">
+                    <label for="weierstrass-key">Scalar k</label>
+                    <input type="text" id="weierstrass-key" placeholder="7" value="7" maxlength="10">
+                </div>
+            </div>
+
+            <button class="run-button" id="weierstrass-run-btn">
+                🔑 Derive Public Key
+            </button>
+
+            <div id="weierstrass-results" class="results"></div>
+        </div>
+
+        <!-- secp256k1 Panel -->
+        <div id="secp256k1-panel" class="panel hidden">
+            <h2 style="margin-bottom: 1rem;">secp256k1 — Bitcoin &amp; Ethereum Key Derivation</h2>
+            <p style="color: #888; margin-bottom: 1.5rem;">
+                SECG SEC 2 v2.0 curve: y² ≡ x³ + 7 (mod p). Used for ECDSA and Schnorr signatures in
+                Bitcoin (BIP-340) and Ethereum (EIP-155). Enter a 256-bit private key as hex.
+            </p>
+
+            <div class="input-group">
+                <div class="input-field" style="grid-column: 1 / -1;">
+                    <label for="secp256k1-key">Private key (32-byte hex)</label>
+                    <input type="text" id="secp256k1-key"
+                        placeholder="0000000000000000000000000000000000000000000000000000000000000001"
+                        value="0000000000000000000000000000000000000000000000000000000000000001"
+                        maxlength="64">
+                    <span id="secp256k1-key-error" style="color:#f87171;font-size:0.8rem;display:none"></span>
+                </div>
+            </div>
+
+            <button class="run-button" id="secp256k1-run-btn">
+                🔑 Derive Public Key
+            </button>
+
+            <div id="secp256k1-results" class="results"></div>
+        </div>
+
+        <footer>
+            <p>Built with Rust + WebAssembly |
+                <a href="https://github.com/peterzzshi/encryption-algorithms-demo" target="_blank">View on GitHub</a>
+            </p>
+        </footer>
+    </div>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>
