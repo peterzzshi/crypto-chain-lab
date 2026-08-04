@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true,
+    "esModuleInterop": true
+  },
+  "include": ["eslint.config.ts", "src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
