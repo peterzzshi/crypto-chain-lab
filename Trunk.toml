@@ -18,7 +18,6 @@ command_arguments = [
     "target/wasm32-unknown-unknown/release/encryption_demo.wasm",
     "--out-dir", "web/pkg",
     "--target", "web",
-    "--no-typescript",
 ]
 
 [[hooks]]
