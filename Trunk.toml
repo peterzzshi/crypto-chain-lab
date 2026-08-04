@@ -8,19 +8,9 @@ ignore = ["web/js", "web/pkg", "web/dist"]
 
 [[hooks]]
 stage = "pre_build"
-command = "cargo"
-command_arguments = ["build", "--target", "wasm32-unknown-unknown", "--release"]
-
-[[hooks]]
-stage = "pre_build"
-command = "wasm-bindgen"
-command_arguments = [
-    "target/wasm32-unknown-unknown/release/encryption_demo.wasm",
-    "--out-dir", "web/pkg",
-    "--target", "web",
-]
-
-[[hooks]]
-stage = "pre_build"
 command = "sh"
-command_arguments = ["-c", "cd web && npm run build"]
+command_arguments = ["-c", """
+  cargo build --target wasm32-unknown-unknown --release &&
+  wasm-bindgen target/wasm32-unknown-unknown/release/encryption_demo.wasm --out-dir web/pkg --target web &&
+  cd web && npm run build
+"""]

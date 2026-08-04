@@ -22,6 +22,12 @@ web/node_modules/
 
 # TypeScript build output (generated from web/ts/*.ts)
 web/js/
+
+# Trunk build output
+web/dist/
+
+# CodeGraph index
+.codegraph/
 # Added by cargo
 
 /target
