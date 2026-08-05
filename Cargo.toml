@@ -27,6 +27,10 @@ num-traits = "0.2"
 version = "0.3"
 features = ["console"]
 
+[dev-dependencies]
+sha2 = "0.10"
+k256 = { version = "0.13", features = ["arithmetic"] }
+
 [profile.release]
 opt-level = "s"
 lto = true
