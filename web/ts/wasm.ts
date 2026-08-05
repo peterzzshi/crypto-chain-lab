@@ -8,6 +8,7 @@ interface WasmModule {
     readonly validate_prime: (n: string) => boolean;
     readonly sha256_demo_text: (text: string) => string;
     readonly sha256_demo_bytes: (bytes: Uint8Array) => string;
+    readonly keccak256_demo_text: (text: string) => string;
     readonly ecc_demo_secp256k1: (private_key_hex: string) => string;
     readonly ecc_demo_weierstrass: (k: string, a: string, b: string, p: string, gx: string, gy: string) => string;
 }
@@ -44,6 +45,8 @@ export const rsaDemoNumber = (message: string, p: string, q: string): string => 
 export const sha256DemoText = (text: string): string => wasmState.get().sha256_demo_text(text);
 
 export const sha256DemoBytes = (bytes: Uint8Array): string => wasmState.get().sha256_demo_bytes(bytes);
+
+export const keccak256DemoText = (text: string): string => wasmState.get().keccak256_demo_text(text);
 
 export const eccDemoSecp256k1 = (privateKeyHex: string): string => wasmState.get().ecc_demo_secp256k1(privateKeyHex);
 

@@ -1,3 +1,11 @@
+export const debounce = <T extends (...args: Parameters<T>) => void>(fn: T, ms: number): ((...args: Parameters<T>) => void) => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    return (...args: Parameters<T>): void => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn(...args), ms);
+    };
+};
+
 export const getElement = (id: string): HTMLElement | null => document.getElementById(id);
 
 export const getElements = (selector: string): NodeListOf<Element> => document.querySelectorAll(selector);

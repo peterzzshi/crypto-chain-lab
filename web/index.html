@@ -18,7 +18,8 @@
 
         <div class="tabs">
             <button class="tab-button active" data-tab="rsa">RSA Encryption</button>
-            <button class="tab-button" data-tab="sha256">SHA-256 Hashing</button>
+            <button class="tab-button" data-tab="sha256">SHA-256</button>
+            <button class="tab-button" data-tab="keccak256">Keccak-256</button>
             <button class="tab-button" data-tab="weierstrass">ECC Weierstrass</button>
             <button class="tab-button" data-tab="secp256k1">secp256k1</button>
         </div>
@@ -46,10 +47,6 @@
                 </div>
             </div>
 
-            <button class="run-button" id="rsa-run-btn">
-                🔐 Encrypt &amp; Decrypt
-            </button>
-
             <div id="rsa-results" class="results"></div>
         </div>
 
@@ -67,11 +64,26 @@
                 </div>
             </div>
 
-            <button class="run-button" id="sha256-run-btn">
-                🔑 Compute Hash
-            </button>
-
             <div id="sha256-results" class="results"></div>
+        </div>
+
+        <!-- Keccak-256 Panel -->
+        <div id="keccak256-panel" class="panel hidden">
+            <h2 style="margin-bottom: 1rem;">Keccak-256 — Ethereum's Native Hash</h2>
+            <p style="color: #888; margin-bottom: 1.5rem;">
+                The original Keccak sponge construction (not NIST SHA3-256 — different padding). Used in Ethereum
+                for address derivation, the EVM <code>keccak256()</code> opcode, EIP-712 typed-data signing, and
+                Solidity's <code>keccak256()</code>. Rate = 1088 bits, capacity = 512 bits, 24 rounds of Keccak-f[1600].
+            </p>
+
+            <div class="input-group">
+                <div class="input-field" style="grid-column: 1 / -1;">
+                    <label for="keccak256-message">Message</label>
+                    <textarea id="keccak256-message" rows="3" placeholder="Hello, World!">Hello, World!</textarea>
+                </div>
+            </div>
+
+            <div id="keccak256-results" class="results"></div>
         </div>
 
         <!-- ECC Weierstrass Panel -->
@@ -109,10 +121,6 @@
                 </div>
             </div>
 
-            <button class="run-button" id="weierstrass-run-btn">
-                🔑 Derive Public Key
-            </button>
-
             <div id="weierstrass-results" class="results"></div>
         </div>
 
@@ -124,6 +132,39 @@
                 Bitcoin (BIP-340) and Ethereum (EIP-155). Enter a 256-bit private key as hex.
             </p>
 
+            <div class="param-card" style="background:#111827;border:1px solid #1f2937;border-radius:8px;padding:1rem;margin-bottom:1.5rem;font-size:0.8rem;font-family:monospace;color:#9ca3af;">
+                <div style="color:#6b7280;font-size:0.75rem;margin-bottom:0.5rem;font-family:sans-serif;letter-spacing:0.05em;text-transform:uppercase;">Curve Parameters (fixed — SECG SEC 2 v2.0)</div>
+                <div style="display:grid;gap:0.25rem;">
+                    <div>p = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF<span style="color:#f87171">FFFFFC2F</span></div>
+                    <div>a = 0, b = 7 &nbsp;→&nbsp; y² ≡ x³ + 7 (mod p)</div>
+                    <div>Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815<span style="color:#60a5fa">B16F81798</span></div>
+                    <div>Gy = 0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08F<span style="color:#60a5fa">FB10D4B8</span></div>
+                    <div>n &nbsp;= 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8C<span style="color:#4ade80">D0364141</span></div>
+                </div>
+            </div>
+
+            <div style="margin-bottom:1rem;">
+                <div style="color:#6b7280;font-size:0.75rem;margin-bottom:0.5rem;font-family:sans-serif;letter-spacing:0.05em;text-transform:uppercase;">Example keys (click to load)</div>
+                <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
+                    <button class="secp256k1-example-key" data-key="0000000000000000000000000000000000000000000000000000000000000001"
+                        style="background:#1f2937;border:1px solid #374151;color:#9ca3af;padding:0.25rem 0.75rem;border-radius:4px;cursor:pointer;font-family:monospace;font-size:0.8rem;">
+                        k = 1 → Q = G
+                    </button>
+                    <button class="secp256k1-example-key" data-key="0000000000000000000000000000000000000000000000000000000000000002"
+                        style="background:#1f2937;border:1px solid #374151;color:#9ca3af;padding:0.25rem 0.75rem;border-radius:4px;cursor:pointer;font-family:monospace;font-size:0.8rem;">
+                        k = 2 → Q = 2G
+                    </button>
+                    <button class="secp256k1-example-key" data-key="0000000000000000000000000000000000000000000000000000000000000003"
+                        style="background:#1f2937;border:1px solid #374151;color:#9ca3af;padding:0.25rem 0.75rem;border-radius:4px;cursor:pointer;font-family:monospace;font-size:0.8rem;">
+                        k = 3 → Q = 3G
+                    </button>
+                    <button class="secp256k1-example-key" data-key="0000000000000000000000000000000000000000000000000000000000000007"
+                        style="background:#1f2937;border:1px solid #374151;color:#9ca3af;padding:0.25rem 0.75rem;border-radius:4px;cursor:pointer;font-family:monospace;font-size:0.8rem;">
+                        k = 7 → Q = 7G
+                    </button>
+                </div>
+            </div>
+
             <div class="input-group">
                 <div class="input-field" style="grid-column: 1 / -1;">
                     <label for="secp256k1-key">Private key (32-byte hex)</label>
@@ -134,10 +175,6 @@
                     <span id="secp256k1-key-error" style="color:#f87171;font-size:0.8rem;display:none"></span>
                 </div>
             </div>
-
-            <button class="run-button" id="secp256k1-run-btn">
-                🔑 Derive Public Key
-            </button>
 
             <div id="secp256k1-results" class="results"></div>
         </div>

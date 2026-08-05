@@ -44,6 +44,18 @@ export interface Sha256Result {
     readonly steps: readonly Sha256Step[];
 }
 
+export interface Keccak256Step {
+    readonly step_number: number;
+    readonly title: string;
+    readonly description: string;
+    readonly data?: readonly string[];
+}
+
+export interface Keccak256Result {
+    readonly hash: string;
+    readonly steps: readonly Keccak256Step[];
+}
+
 const renderStepCard = (stepNumber: number, title: string, description: string, content: string): string => `
     <div class="step-card">
         <div class="step-title">
@@ -128,6 +140,18 @@ export const buildSha256ResultsHtml = ({ hash, steps }: Sha256Result): string =>
     return hashHtml + stepsHtml;
 };
 
+export const buildKeccak256ResultsHtml = ({ hash, steps }: Keccak256Result): string => {
+    const hashHtml = `<div class="hash-result"><strong>Keccak-256 Hash:</strong><br>${hash}</div>`;
+    const stepsHtml = steps.map(step => {
+        const { step_number, title, description, data = [] } = step;
+        const dataHtml = data.length > 0
+            ? `<div class="step-data">${data.map(item => `<div class="step-data-item">${item}</div>`).join('')}</div>`
+            : '';
+        return renderStepCard(step_number, title, description, dataHtml);
+    }).join('');
+    return hashHtml + stepsHtml;
+};
+
 export const buildErrorHtml = (message: string): string =>
     renderMessage('error-message', '❌', message);
 
@@ -145,6 +169,9 @@ export const renderRsaResults = (container: HTMLElement, result: RsaResult): voi
 
 export const renderSha256Results = (container: HTMLElement, result: Sha256Result): void =>
     renderToContainer(container, buildSha256ResultsHtml(result));
+
+export const renderKeccak256Results = (container: HTMLElement, result: Keccak256Result): void =>
+    renderToContainer(container, buildKeccak256ResultsHtml(result));
 
 export const renderError = (container: HTMLElement, message: string): void =>
     renderToContainer(container, buildErrorHtml(message));

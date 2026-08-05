@@ -1,6 +1,6 @@
-import { initWasm as initWasmModule, isWasmReady, rsaDemoText, rsaDemoNumber, sha256DemoText, eccDemoSecp256k1, eccDemoWeierstrass } from './wasm.ts';
-import { renderRsaResults, renderSha256Results, renderWeierstrassResults, renderSecp256k1Results, renderError, renderLoading } from './ui.ts';
-import type { RsaResult, Sha256Result, EccResult } from './ui.ts';
+import { initWasm as initWasmModule, isWasmReady, rsaDemoText, rsaDemoNumber, sha256DemoText, keccak256DemoText, eccDemoSecp256k1, eccDemoWeierstrass } from './wasm.ts';
+import { renderRsaResults, renderSha256Results, renderKeccak256Results, renderWeierstrassResults, renderSecp256k1Results, renderError, renderLoading } from './ui.ts';
+import type { RsaResult, Sha256Result, Keccak256Result, EccResult } from './ui.ts';
 import { getElement, getTrimmedValue, getValue, isNumericString, validateNonEmpty, parseResult } from './utils.ts';
 import type { ValidationResult, ParsedResult } from './utils.ts';
 
@@ -33,6 +33,11 @@ interface Sha256Inputs {
     readonly resultsDiv: HTMLElement | null;
 }
 
+interface Keccak256Inputs {
+    readonly message: string;
+    readonly resultsDiv: HTMLElement | null;
+}
+
 interface DemoConfig<TInputs, TResult> {
     readonly getInputs: () => TInputs;
     readonly validate: (inputs: TInputs) => ValidationResult;
@@ -51,6 +56,11 @@ const getRsaInputs = (): RsaInputs => ({
 const getSha256Inputs = (): Sha256Inputs => ({
     message: getValue('sha256-message'),
     resultsDiv: getElement('sha256-results')
+});
+
+const getKeccak256Inputs = (): Keccak256Inputs => ({
+    message: getValue('keccak256-message'),
+    resultsDiv: getElement('keccak256-results'),
 });
 
 const getWeierstrassInputs = (): WeierstrassInputs => ({
@@ -79,6 +89,9 @@ const validateRsaInputs = ({ message, p, q }: RsaInputs): ValidationResult => {
 const validateSha256Inputs = ({ message }: Sha256Inputs): ValidationResult =>
     validateNonEmpty(message, 'a message');
 
+const validateKeccak256Inputs = ({ message }: Keccak256Inputs): ValidationResult =>
+    validateNonEmpty(message, 'a message');
+
 const validateWeierstrassInputs = ({ key, a, b, p, gx, gy }: WeierstrassInputs): ValidationResult => {
     for (const [name, val] of [['k', key], ['a', a], ['b', b], ['p', p], ['Gx', gx], ['Gy', gy]] as [string, string][]) {
         if (!val || !/^\d+$/.test(val)) return { valid: false, error: `${name} must be a non-negative integer` };
@@ -105,6 +118,9 @@ const computeRsa = (message: string, p: string, q: string): ParsedResult<RsaResu
 const computeSha256 = (message: string): ParsedResult<Sha256Result> =>
     parseResult<Sha256Result>(sha256DemoText(message));
 
+const computeKeccak256 = (message: string): ParsedResult<Keccak256Result> =>
+    parseResult<Keccak256Result>(keccak256DemoText(message));
+
 const computeWeierstrass = (key: string, a: string, b: string, p: string, gx: string, gy: string): ParsedResult<EccResult> =>
     parseResult<EccResult>(eccDemoWeierstrass(key, a, b, p, gx, gy));
 
@@ -118,10 +134,7 @@ const runDemo = async <TInputs extends { resultsDiv: HTMLElement | null }, TResu
     renderSuccess,
     loadingMessage
 }: DemoConfig<TInputs, TResult>): Promise<void> => {
-    if (!isWasmReady()) {
-        alert('WebAssembly is still loading. Please wait.');
-        return;
-    }
+    if (!isWasmReady()) return;
 
     const inputs = getInputs();
     const { resultsDiv } = inputs;
@@ -165,6 +178,14 @@ export const runSha256Demo = (): Promise<void> => runDemo<Sha256Inputs, Sha256Re
     validate: validateSha256Inputs,
     compute: ({ message }) => computeSha256(message),
     renderSuccess: renderSha256Results,
+    loadingMessage: 'Computing hash...'
+});
+
+export const runKeccak256Demo = (): Promise<void> => runDemo<Keccak256Inputs, Keccak256Result>({
+    getInputs: getKeccak256Inputs,
+    validate: validateKeccak256Inputs,
+    compute: ({ message }) => computeKeccak256(message),
+    renderSuccess: renderKeccak256Results,
     loadingMessage: 'Computing hash...'
 });
 

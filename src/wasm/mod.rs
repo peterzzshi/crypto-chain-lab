@@ -11,6 +11,7 @@ use crate::rsa::encryption::{decrypt, encrypt};
 use crate::rsa::key_generation::generate_keypair;
 use crate::rsa::math_utils::is_prime;
 use crate::rsa::text_encoding::number_to_text;
+use crate::keccak256::keccak256_with_steps;
 use crate::sha256::compression::compress_block;
 use crate::sha256::constants::INITIAL_HASH;
 use crate::sha256::math_utils::words_to_hex;
@@ -558,6 +559,61 @@ fn run_sha256_demo_internal(message_text: Option<String>, message_bytes: &[u8]) 
         hash_words: hash.iter().map(|w| format!("0x{:08x}", w)).collect(),
         steps,
     }
+}
+
+// ============================================================================
+// Keccak-256 Types
+// ============================================================================
+
+#[derive(Serialize, Deserialize)]
+pub struct Keccak256Step {
+    pub step_number: u32,
+    pub title: String,
+    pub description: String,
+    pub data: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Keccak256DemoResult {
+    pub success: bool,
+    pub error: Option<String>,
+    pub original_message: String,
+    pub hash: String,
+    pub steps: Vec<Keccak256Step>,
+}
+
+// ============================================================================
+// Keccak-256 WASM Functions
+// ============================================================================
+
+#[wasm_bindgen]
+pub fn keccak256_demo_text(text: &str) -> String {
+    if text.is_empty() {
+        return to_json(&Keccak256DemoResult {
+            success: false,
+            error: Some("Please enter a message".to_string()),
+            original_message: String::new(),
+            hash: String::new(),
+            steps: vec![],
+        });
+    }
+    let (hash_bytes, raw_steps) = keccak256_with_steps(text.as_bytes());
+    let steps = raw_steps
+        .into_iter()
+        .map(|s| Keccak256Step {
+            step_number: s.step_number,
+            title: s.title,
+            description: s.description,
+            data: s.data,
+        })
+        .collect();
+    to_json(&Keccak256DemoResult {
+        success: true,
+        error: None,
+        original_message: text.to_string(),
+        hash: hex::encode(hash_bytes),
+        steps,
+    })
 }
 
 // ============================================================================
