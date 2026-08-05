@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Encryption Algorithms Demo</title>
+    <title>Crypto Chain Lab</title>
     <link rel="stylesheet" href="css/styles.css">
     <link data-trunk rel="copy-dir" href="css">
     <link data-trunk rel="copy-dir" href="js">
@@ -12,16 +12,22 @@
 <body>
     <div class="container">
         <header>
-            <h1>🔐 Encryption Algorithms Demo</h1>
-            <p class="subtitle">Interactive visualisation of cryptographic algorithms with step-by-step calculations</p>
+            <h1>🔐 Crypto Chain Lab</h1>
+            <p class="subtitle">Interactive visualisation of cryptographic primitives and blockchain construction</p>
         </header>
 
         <div class="tabs">
-            <button class="tab-button active" data-tab="rsa">RSA Encryption</button>
-            <button class="tab-button" data-tab="sha256">SHA-256</button>
-            <button class="tab-button" data-tab="keccak256">Keccak-256</button>
-            <button class="tab-button" data-tab="weierstrass">ECC Weierstrass</button>
-            <button class="tab-button" data-tab="secp256k1">secp256k1</button>
+            <div class="tab-primitives-wrapper">
+                <select id="primitive-select" class="primitive-select">
+                    <option value="rsa">RSA Encryption</option>
+                    <option value="sha256">SHA-256</option>
+                    <option value="keccak256">Keccak-256</option>
+                    <option value="weierstrass">ECC Weierstrass</option>
+                    <option value="secp256k1">secp256k1</option>
+                </select>
+            </div>
+            <div class="tab-group-divider"></div>
+            <button class="tab-button tab-button-highlight" data-tab="blockchain">⛓ Blockchain</button>
         </div>
 
         <!-- RSA Panel -->
@@ -177,6 +183,93 @@
             </div>
 
             <div id="secp256k1-results" class="results"></div>
+
+            <!-- ECDSA Signing sub-section -->
+            <div style="margin-top:2rem;border-top:1px solid #1f2937;padding-top:1.5rem;">
+                <h3 style="margin-bottom:0.5rem;color:#e5e7eb;">ECDSA Message Signing</h3>
+                <p style="color:#888;font-size:0.9rem;margin-bottom:1rem;">
+                    Sign a message with the private key above (RFC 6979 deterministic k).
+                    The resulting (r, s) signature can be verified by anyone with the matching public key.
+                </p>
+                <div class="input-group">
+                    <div class="input-field" style="grid-column:1/-1;">
+                        <label for="ecdsa-message">Message to sign</label>
+                        <input type="text" id="ecdsa-message" placeholder="Hello, secp256k1!" value="Hello, secp256k1!">
+                    </div>
+                </div>
+                <button id="ecdsa-sign-btn"
+                    style="margin-top:0.75rem;padding:0.6rem 1.5rem;background:linear-gradient(90deg,#7c3aed,#4f46e5);border:none;border-radius:8px;color:#fff;font-size:0.95rem;cursor:pointer;">
+                    Sign Message
+                </button>
+                <div id="ecdsa-results" class="results" style="margin-top:1rem;"></div>
+            </div>
+        </div>
+
+        <!-- Blockchain Panel -->
+        <div id="blockchain-panel" class="panel hidden">
+            <h2 style="margin-bottom:1rem;">⛓ Blockchain — Proof of Work</h2>
+            <p style="color:#888;margin-bottom:1.5rem;">
+                Build a chain of blocks secured by proof-of-work. Choose SHA-256 or Keccak-256 as the hash
+                function, set the mining difficulty, and add blocks of arbitrary data. Tamper with any block
+                to see how the hash chain breaks — and why re-mining every downstream block is the only fix.
+            </p>
+
+            <!-- Chain config -->
+            <div class="input-group" style="margin-bottom:1.5rem;">
+                <div class="input-field">
+                    <label for="blockchain-algo">Hash algorithm</label>
+                    <select id="blockchain-algo" style="width:100%;padding:0.75rem;background:#1f2937;border:1px solid #374151;border-radius:8px;color:#e0e0e0;font-size:1rem;">
+                        <option value="sha256">SHA-256</option>
+                        <option value="keccak256">Keccak-256 (Ethereum)</option>
+                    </select>
+                </div>
+                <div class="input-field">
+                    <label for="blockchain-difficulty">
+                        Difficulty: <span id="blockchain-difficulty-label">2</span>
+                        <span style="color:#6b7280;font-size:0.75rem;margin-left:0.5rem">(leading zero hex digits)</span>
+                    </label>
+                    <input type="range" id="blockchain-difficulty" min="1" max="4" value="2"
+                        style="width:100%;accent-color:#3a7bd5;margin-top:0.5rem;">
+                </div>
+                <div class="input-field" style="display:flex;align-items:flex-end;gap:0.75rem;">
+                    <button id="blockchain-start-btn"
+                        style="padding:0.75rem 1.5rem;background:linear-gradient(90deg,#00d2ff,#3a7bd5);border:none;border-radius:8px;color:#fff;font-size:1rem;cursor:pointer;white-space:nowrap;">
+                        Start Chain
+                    </button>
+                    <button id="blockchain-reset-btn"
+                        style="padding:0.75rem 1rem;background:#374151;border:none;border-radius:8px;color:#9ca3af;font-size:1rem;cursor:pointer;">
+                        Reset
+                    </button>
+                </div>
+            </div>
+
+            <!-- Status bar -->
+            <div id="blockchain-status" class="blockchain-status status-neutral" style="margin-bottom:1.5rem;">
+                Start a chain to begin
+            </div>
+
+            <!-- Mine block section -->
+            <div id="blockchain-mine-section" style="display:none;margin-bottom:1.5rem;">
+                <div class="input-group">
+                    <div class="input-field" style="grid-column:1/-1;">
+                        <label for="blockchain-data">Block data</label>
+                        <textarea id="blockchain-data" rows="2" placeholder="Enter transaction data, message, or any text…"
+                            style="width:100%;padding:0.75rem;background:#1f2937;border:1px solid #374151;border-radius:8px;color:#e0e0e0;font-size:1rem;font-family:inherit;resize:vertical;"></textarea>
+                    </div>
+                    <div class="input-field" style="display:flex;align-items:flex-end;">
+                        <button id="blockchain-mine-btn"
+                            style="padding:0.75rem 1.5rem;background:linear-gradient(90deg,#f59e0b,#ef4444);border:none;border-radius:8px;color:#fff;font-size:1rem;cursor:pointer;">
+                            ⛏ Mine Block
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chain visualization -->
+            <div id="blockchain-chain" style="margin-bottom:1.5rem;"></div>
+
+            <!-- Mining steps -->
+            <div id="blockchain-steps" class="results"></div>
         </div>
 
         <footer>

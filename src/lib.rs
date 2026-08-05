@@ -1,3 +1,4 @@
+pub mod blockchain;
 pub mod common;
 pub mod ecc;
 pub mod keccak256;

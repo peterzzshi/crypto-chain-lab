@@ -354,3 +354,37 @@ export const renderWeierstrassResults = (container: HTMLElement, result: EccResu
 
 export const renderSecp256k1Results = (container: HTMLElement, result: EccResult): void =>
     renderToContainer(container, buildSecp256k1ResultsHtml(result));
+
+export interface EcdsaSignResult {
+    readonly success: boolean;
+    readonly error?: string;
+    readonly r?: string;
+    readonly s?: string;
+    readonly public_key_x?: string;
+    readonly public_key_y?: string;
+    readonly message_hash?: string;
+}
+
+export const buildEcdsaSignResultsHtml = (result: EcdsaSignResult): string => {
+    if (!result.success || !result.r || !result.s) {
+        return buildErrorHtml(result.error ?? 'Signing failed');
+    }
+    return `
+        <div class="key-display">
+            ${renderKeyCard('✍️', 'Signature', [
+                `r = ${result.r}`,
+                `s = ${result.s}`,
+            ])}
+            ${renderKeyCard('🔑', 'Public Key', [
+                `x = ${result.public_key_x ?? ''}`,
+                `y = ${result.public_key_y ?? ''}`,
+            ])}
+            ${renderKeyCard('🔏', 'Message Hash (SHA-256)', [
+                result.message_hash ?? '',
+            ])}
+        </div>
+    `;
+};
+
+export const renderEcdsaSignResults = (container: HTMLElement, result: EcdsaSignResult): void =>
+    renderToContainer(container, buildEcdsaSignResultsHtml(result));

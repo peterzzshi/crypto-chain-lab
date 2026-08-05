@@ -11,6 +11,12 @@ interface WasmModule {
     readonly keccak256_demo_text: (text: string) => string;
     readonly ecc_demo_secp256k1: (private_key_hex: string) => string;
     readonly ecc_demo_weierstrass: (k: string, a: string, b: string, p: string, gx: string, gy: string) => string;
+    readonly blockchain_create_genesis: (hash_algo: string, difficulty: number, timestamp: number) => string;
+    readonly blockchain_mine_block: (chain_json: string, data: string, hash_algo: string, difficulty: number, timestamp: number) => string;
+    readonly blockchain_validate: (chain_json: string) => string;
+    readonly blockchain_tamper: (chain_json: string, block_index: number, new_data: string) => string;
+    readonly ecdsa_sign: (private_key_hex: string, message: string) => string;
+    readonly ecdsa_verify: (pubkey_x: string, pubkey_y: string, r: string, s: string, message: string) => string;
 }
 
 interface WasmState {
@@ -52,6 +58,24 @@ export const eccDemoSecp256k1 = (privateKeyHex: string): string => wasmState.get
 
 export const eccDemoWeierstrass = (k: string, a: string, b: string, p: string, gx: string, gy: string): string =>
     wasmState.get().ecc_demo_weierstrass(k, a, b, p, gx, gy);
+
+export const blockchainCreateGenesis = (hashAlgo: string, difficulty: number): string =>
+    wasmState.get().blockchain_create_genesis(hashAlgo, difficulty, Date.now());
+
+export const blockchainMineBlock = (chainJson: string, data: string, hashAlgo: string, difficulty: number): string =>
+    wasmState.get().blockchain_mine_block(chainJson, data, hashAlgo, difficulty, Date.now());
+
+export const blockchainValidate = (chainJson: string): string =>
+    wasmState.get().blockchain_validate(chainJson);
+
+export const blockchainTamper = (chainJson: string, blockIndex: number, newData: string): string =>
+    wasmState.get().blockchain_tamper(chainJson, blockIndex, newData);
+
+export const ecdsaSign = (privateKeyHex: string, message: string): string =>
+    wasmState.get().ecdsa_sign(privateKeyHex, message);
+
+export const ecdsaVerify = (pubkeyX: string, pubkeyY: string, r: string, s: string, message: string): string =>
+    wasmState.get().ecdsa_verify(pubkeyX, pubkeyY, r, s, message);
 
 export const initWasm = async (): Promise<boolean> => {
     try {

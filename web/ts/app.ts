@@ -1,19 +1,54 @@
-import { initWasm, runRsaDemo, runSha256Demo, runKeccak256Demo, runWeierstrassDemo, runSecp256k1Demo } from './demos.ts';
+import { initWasm, runRsaDemo, runSha256Demo, runKeccak256Demo, runWeierstrassDemo, runSecp256k1Demo, runEcdsaSignDemo } from './demos.ts';
+import { initBlockchain, startChain, mineBlock, resetChain } from './blockchain.ts';
 import { getElement, getElements, debounce } from './utils.ts';
 
-const switchTab = (event: Event): void => {
-    const target = event.target as HTMLElement;
-    const tabName = target.dataset.tab;
-    getElements('.tab-button').forEach(btn => btn.classList.remove('active'));
-    target.classList.add('active');
-    getElements('.panel').forEach(panel => panel.classList.add('hidden'));
+const showPanel = (tabName: string): void => {
+    getElements('.panel').forEach(p => p.classList.add('hidden'));
     getElement(`${tabName}-panel`)?.classList.remove('hidden');
 };
 
+const switchToPrimitive = (tabName: string): void => {
+    showPanel(tabName);
+    getElements('.tab-button').forEach(btn => btn.classList.remove('active'));
+    const select = getElement('primitive-select') as HTMLSelectElement | null;
+    if (select) select.value = tabName;
+};
+
+const switchToBlockchain = (): void => {
+    showPanel('blockchain');
+    getElements('.tab-button').forEach(btn => {
+        const el = btn as HTMLElement;
+        el.classList.toggle('active', el.dataset.tab === 'blockchain');
+    });
+    const select = getElement('primitive-select') as HTMLSelectElement | null;
+    if (select) select.value = '';
+};
+
+const setupTabListeners = (): void => {
+    // Primitive select
+    const select = getElement('primitive-select') as HTMLSelectElement | null;
+    if (select) {
+        select.addEventListener('change', () => switchToPrimitive(select.value));
+    }
+    // Blockchain button (and any future top-level tab buttons)
+    getElements('.tab-button').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const tab = (e.currentTarget as HTMLElement).dataset.tab;
+            if (tab === 'blockchain') switchToBlockchain();
+        });
+    });
+    // Difficulty slider label
+    const diffSlider = getElement('blockchain-difficulty') as HTMLInputElement | null;
+    const diffLabel = getElement('blockchain-difficulty-label');
+    if (diffSlider && diffLabel) {
+        diffSlider.addEventListener('input', () => { diffLabel.textContent = diffSlider.value; });
+    }
+};
+
 const setupReactiveListeners = (): void => {
-    const d300 = debounce(() => void runSha256Demo(), 300);
+    const d300  = debounce(() => void runSha256Demo(), 300);
     const d300k = debounce(() => void runKeccak256Demo(), 300);
-    const d400 = debounce(() => void runRsaDemo(), 400);
+    const d400  = debounce(() => void runRsaDemo(), 400);
     const d400w = debounce(() => void runWeierstrassDemo(), 400);
     const d400s = debounce(() => void runSecp256k1Demo(), 400);
 
@@ -23,7 +58,6 @@ const setupReactiveListeners = (): void => {
     ['rsa-message', 'rsa-p', 'rsa-q'].forEach(id =>
         getElement(id)?.addEventListener('input', d400)
     );
-
     ['weierstrass-key', 'weierstrass-a', 'weierstrass-b', 'weierstrass-p', 'weierstrass-gx', 'weierstrass-gy'].forEach(id =>
         getElement(id)?.addEventListener('input', d400w)
     );
@@ -56,16 +90,20 @@ const setupExampleKeyChips = (): void => {
     });
 };
 
-const setupTabListeners = (): void => {
-    getElements('.tab-button').forEach(btn => btn.addEventListener('click', switchTab));
-};
-
 const init = async (): Promise<void> => {
     setupTabListeners();
+    // Show RSA panel by default
+    showPanel('rsa');
     await initWasm();
     setupReactiveListeners();
     setupExampleKeyChips();
-    // Run all demos on load using default values
+    // Wire blockchain action buttons
+    getElement('blockchain-start-btn')?.addEventListener('click', startChain);
+    getElement('blockchain-mine-btn')?.addEventListener('click', mineBlock);
+    getElement('blockchain-reset-btn')?.addEventListener('click', resetChain);
+    initBlockchain();
+    getElement('ecdsa-sign-btn')?.addEventListener('click', () => void runEcdsaSignDemo());
+    // Pre-run all algorithm demos
     void runRsaDemo();
     void runSha256Demo();
     void runKeccak256Demo();

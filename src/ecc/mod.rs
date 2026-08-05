@@ -1,5 +1,6 @@
 pub mod constants;
 pub mod demo;
+pub mod ecdsa;
 pub mod key_generation;
 pub mod math_utils;
 pub mod types;

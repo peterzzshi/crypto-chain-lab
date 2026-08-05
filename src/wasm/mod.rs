@@ -1,5 +1,5 @@
 use num_bigint::BigUint;
-use num_traits::One;
+use num_traits::{One, Zero};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
@@ -11,6 +11,12 @@ use crate::rsa::encryption::{decrypt, encrypt};
 use crate::rsa::key_generation::generate_keypair;
 use crate::rsa::math_utils::is_prime;
 use crate::rsa::text_encoding::number_to_text;
+use crate::blockchain::{
+    chain::{create_genesis, mine_next_block, tamper_block, validate_chain},
+    types::{Chain, ChainResult, MineBlockResult},
+};
+use crate::ecc::ecdsa::{sign as ecdsa_sign_inner, verify as ecdsa_verify_inner};
+use crate::ecc::types::{EcdsaSignResult, EcdsaVerifyResult};
 use crate::keccak256::keccak256_with_steps;
 use crate::sha256::compression::compress_block;
 use crate::sha256::constants::INITIAL_HASH;
@@ -876,4 +882,168 @@ fn run_ecc_weierstrass_internal(
             steps,
         },
     }
+}
+
+// ============================================================================
+// Blockchain
+// ============================================================================
+
+#[wasm_bindgen]
+pub fn blockchain_create_genesis(hash_algo: &str, difficulty: u32, timestamp: f64) -> String {
+    let result = create_genesis(hash_algo, difficulty, timestamp as u64);
+    to_json(&result)
+}
+
+#[wasm_bindgen]
+pub fn blockchain_mine_block(
+    chain_json: &str,
+    data: &str,
+    hash_algo: &str,
+    difficulty: u32,
+    timestamp: f64,
+) -> String {
+    let chain: Chain = match serde_json::from_str(chain_json) {
+        Ok(c) => c,
+        Err(e) => {
+            return to_json(&MineBlockResult {
+                success: false,
+                error: Some(e.to_string()),
+                block: None,
+                chain: None,
+                steps: vec![],
+                attempts: 0,
+            })
+        }
+    };
+    let result = mine_next_block(chain, data, hash_algo, difficulty, timestamp as u64);
+    to_json(&result)
+}
+
+#[wasm_bindgen]
+pub fn blockchain_validate(chain_json: &str) -> String {
+    let chain: Chain = match serde_json::from_str(chain_json) {
+        Ok(c) => c,
+        Err(e) => {
+            return to_json(&serde_json::json!({
+                "valid": false,
+                "error": e.to_string(),
+                "message": "Failed to parse chain JSON"
+            }))
+        }
+    };
+    to_json(&validate_chain(&chain))
+}
+
+#[wasm_bindgen]
+pub fn blockchain_tamper(chain_json: &str, block_index: u32, new_data: &str) -> String {
+    let chain: Chain = match serde_json::from_str(chain_json) {
+        Ok(c) => c,
+        Err(e) => {
+            return to_json(&ChainResult {
+                success: false,
+                error: Some(e.to_string()),
+                chain: None,
+            })
+        }
+    };
+    to_json(&tamper_block(chain, block_index as usize, new_data))
+}
+
+// ── ECDSA signing ─────────────────────────────────────────────────────────────
+
+#[wasm_bindgen]
+pub fn ecdsa_sign(private_key_hex: &str, message: &str) -> String {
+    use crate::ecc::constants::secp256k1 as secp_params;
+    use crate::ecc::key_generation::keypair_from_bigint;
+    use sha2::{Digest, Sha256};
+
+    let clean = private_key_hex.trim_start_matches("0x").trim_start_matches("0X");
+    let private_key = match BigUint::parse_bytes(clean.as_bytes(), 16) {
+        Some(k) => k,
+        None => return to_json(&EcdsaSignResult {
+            success: false,
+            error: Some("Invalid hex private key".to_string()),
+            r: None, s: None, public_key_x: None, public_key_y: None, message_hash: None,
+        }),
+    };
+
+    let params = secp_params();
+    if private_key.is_zero() || private_key >= params.n {
+        return to_json(&EcdsaSignResult {
+            success: false,
+            error: Some("Private key must be in [1, n-1]".to_string()),
+            r: None, s: None, public_key_x: None, public_key_y: None, message_hash: None,
+        });
+    }
+
+    let msg_hash: [u8; 32] = Sha256::digest(message.as_bytes()).into();
+
+    let kp = match keypair_from_bigint(private_key.clone(), &params) {
+        Ok(k) => k,
+        Err(e) => return to_json(&EcdsaSignResult {
+            success: false, error: Some(e),
+            r: None, s: None, public_key_x: None, public_key_y: None, message_hash: None,
+        }),
+    };
+
+    match ecdsa_sign_inner(&msg_hash, &private_key, &params) {
+        None => to_json(&EcdsaSignResult {
+            success: false, error: Some("Signing failed".to_string()),
+            r: None, s: None, public_key_x: None, public_key_y: None, message_hash: None,
+        }),
+        Some(sig) => {
+            let (px, py) = match &kp.public_key {
+                crate::ecc::types::CurvePoint::Finite(p) => (
+                    format!("{:0>64}", hex::encode(p.x.to_bytes_be())),
+                    format!("{:0>64}", hex::encode(p.y.to_bytes_be())),
+                ),
+                _ => ("".to_string(), "".to_string()),
+            };
+            to_json(&EcdsaSignResult {
+                success: true, error: None,
+                r: Some(format!("{:0>64}", hex::encode(sig.r.to_bytes_be()))),
+                s: Some(format!("{:0>64}", hex::encode(sig.s.to_bytes_be()))),
+                public_key_x: Some(px),
+                public_key_y: Some(py),
+                message_hash: Some(hex::encode(msg_hash)),
+            })
+        }
+    }
+}
+
+#[wasm_bindgen]
+pub fn ecdsa_verify(pubkey_x_hex: &str, pubkey_y_hex: &str, r_hex: &str, s_hex: &str, message: &str) -> String {
+    use crate::ecc::constants::secp256k1 as secp_params;
+    use crate::ecc::types::{AffinePoint, CurvePoint, EcdsaSignature};
+    use sha2::{Digest, Sha256};
+
+    let parse = |s: &str| -> Option<BigUint> {
+        let c = s.trim_start_matches("0x").trim_start_matches("0X");
+        BigUint::parse_bytes(c.as_bytes(), 16)
+    };
+
+    let (px, py, r, s) = match (parse(pubkey_x_hex), parse(pubkey_y_hex), parse(r_hex), parse(s_hex)) {
+        (Some(a), Some(b), Some(c), Some(d)) => (a, b, c, d),
+        _ => return to_json(&EcdsaVerifyResult {
+            valid: false,
+            error: Some("Invalid hex input".to_string()),
+            message: "Failed to parse inputs".to_string(),
+        }),
+    };
+
+    let params = secp_params();
+    let pubkey = CurvePoint::Finite(AffinePoint { x: px, y: py });
+    let sig = EcdsaSignature { r, s };
+    let msg_hash: [u8; 32] = Sha256::digest(message.as_bytes()).into();
+
+    let valid = ecdsa_verify_inner(&msg_hash, &sig, &pubkey, &params);
+    to_json(&EcdsaVerifyResult {
+        valid,
+        error: None,
+        message: if valid {
+            "Signature is valid — the message was signed by the owner of this public key.".to_string()
+        } else {
+            "Signature is invalid — message or public key does not match.".to_string()
+        },
+    })
 }

@@ -1,6 +1,6 @@
-import { initWasm as initWasmModule, isWasmReady, rsaDemoText, rsaDemoNumber, sha256DemoText, keccak256DemoText, eccDemoSecp256k1, eccDemoWeierstrass } from './wasm.ts';
-import { renderRsaResults, renderSha256Results, renderKeccak256Results, renderWeierstrassResults, renderSecp256k1Results, renderError, renderLoading } from './ui.ts';
-import type { RsaResult, Sha256Result, Keccak256Result, EccResult } from './ui.ts';
+import { initWasm as initWasmModule, isWasmReady, rsaDemoText, rsaDemoNumber, sha256DemoText, keccak256DemoText, eccDemoSecp256k1, eccDemoWeierstrass, ecdsaSign } from './wasm.ts';
+import { renderRsaResults, renderSha256Results, renderKeccak256Results, renderWeierstrassResults, renderSecp256k1Results, renderEcdsaSignResults, renderError, renderLoading } from './ui.ts';
+import type { RsaResult, Sha256Result, Keccak256Result, EccResult, EcdsaSignResult } from './ui.ts';
 import { getElement, getTrimmedValue, getValue, isNumericString, validateNonEmpty, parseResult } from './utils.ts';
 import type { ValidationResult, ParsedResult } from './utils.ts';
 
@@ -25,6 +25,12 @@ interface WeierstrassInputs {
 
 interface Secp256k1Inputs {
     readonly key: string;
+    readonly resultsDiv: HTMLElement | null;
+}
+
+interface EcdsaSignInputs {
+    readonly key: string;
+    readonly message: string;
     readonly resultsDiv: HTMLElement | null;
 }
 
@@ -78,6 +84,12 @@ const getSecp256k1Inputs = (): Secp256k1Inputs => ({
     resultsDiv: getElement('secp256k1-results'),
 });
 
+const getEcdsaSignInputs = (): EcdsaSignInputs => ({
+    key: getTrimmedValue('secp256k1-key'),
+    message: getTrimmedValue('ecdsa-message'),
+    resultsDiv: getElement('ecdsa-results'),
+});
+
 const validateRsaInputs = ({ message, p, q }: RsaInputs): ValidationResult => {
     const messageCheck = validateNonEmpty(message, 'a message');
     if (!messageCheck.valid) return messageCheck;
@@ -108,6 +120,12 @@ const validateSecp256k1Inputs = ({ key }: Secp256k1Inputs): ValidationResult => 
     return { valid: true };
 };
 
+const validateEcdsaSignInputs = ({ key, message }: EcdsaSignInputs): ValidationResult => {
+    const keyCheck = validateSecp256k1Inputs({ key, resultsDiv: null });
+    if (!keyCheck.valid) return keyCheck;
+    return validateNonEmpty(message, 'a message to sign');
+};
+
 const computeRsa = (message: string, p: string, q: string): ParsedResult<RsaResult> => {
     const resultJson = isNumericString(message)
         ? rsaDemoNumber(message, p, q)
@@ -126,6 +144,9 @@ const computeWeierstrass = (key: string, a: string, b: string, p: string, gx: st
 
 const computeSecp256k1 = (key: string): ParsedResult<EccResult> =>
     parseResult<EccResult>(eccDemoSecp256k1(key));
+
+const computeEcdsaSign = (key: string, message: string): ParsedResult<EcdsaSignResult> =>
+    parseResult<EcdsaSignResult>(ecdsaSign(key, message));
 
 const runDemo = async <TInputs extends { resultsDiv: HTMLElement | null }, TResult>({
     getInputs,
@@ -203,4 +224,12 @@ export const runSecp256k1Demo = (): Promise<void> => runDemo<Secp256k1Inputs, Ec
     compute: ({ key }) => computeSecp256k1(key),
     renderSuccess: renderSecp256k1Results,
     loadingMessage: 'Deriving public key...',
+});
+
+export const runEcdsaSignDemo = (): Promise<void> => runDemo<EcdsaSignInputs, EcdsaSignResult>({
+    getInputs: getEcdsaSignInputs,
+    validate: validateEcdsaSignInputs,
+    compute: ({ key, message }) => computeEcdsaSign(key, message),
+    renderSuccess: renderEcdsaSignResults,
+    loadingMessage: 'Signing message...',
 });
