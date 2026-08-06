@@ -24,6 +24,7 @@
                     <option value="keccak256">Keccak-256</option>
                     <option value="weierstrass">ECC Weierstrass</option>
                     <option value="secp256k1">secp256k1</option>
+                    <option value="aes128">AES-128</option>
                 </select>
             </div>
             <div class="tab-group-divider"></div>
@@ -239,6 +240,26 @@
 
                 <div id="ecdsa-verify-results" class="results" style="margin-top:1rem;"></div>
             </div>
+        </div>
+
+        <!-- AES-128 Panel -->
+        <div id="aes128-panel" class="panel hidden">
+            <h2 style="margin-bottom:1rem;">AES-128 Block Cipher</h2>
+            <p style="color:#888;margin-bottom:1.5rem;">
+                Enter a 16-byte plaintext and 16-byte key as 32 hex characters each. Steps trace every round:
+                key schedule expansion, AddRoundKey, SubBytes, ShiftRows, MixColumns, and final decryption verification.
+            </p>
+            <div class="input-group">
+                <div class="input-field">
+                    <label for="aes128-plaintext">Plaintext (32 hex chars = 16 bytes)</label>
+                    <input type="text" id="aes128-plaintext" placeholder="00112233445566778899aabbccddeeff" value="00112233445566778899aabbccddeeff" maxlength="34">
+                </div>
+                <div class="input-field">
+                    <label for="aes128-key">Key (32 hex chars = 16 bytes)</label>
+                    <input type="text" id="aes128-key" placeholder="000102030405060708090a0b0c0d0e0f" value="000102030405060708090a0b0c0d0e0f" maxlength="34">
+                </div>
+            </div>
+            <div id="aes128-results" class="results"></div>
         </div>
 
         <!-- Blockchain Panel -->

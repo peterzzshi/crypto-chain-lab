@@ -18,6 +18,7 @@ type WasmModule = {
     readonly blockchain_tamper: (chain_json: string, block_index: number, new_data: string) => string;
     readonly ecdsa_sign: (private_key_hex: string, message: string) => string;
     readonly ecdsa_verify: (pubkey_x: string, pubkey_y: string, r: string, s: string, message: string) => string;
+    readonly aes128_demo: (plaintext_hex: string, key_hex: string) => string;
 }
 
 type WasmState = {
@@ -80,6 +81,9 @@ export const ecdsaSign = (privateKeyHex: string, message: string): string =>
 
 export const ecdsaVerify = (pubkeyX: string, pubkeyY: string, r: string, s: string, message: string): string =>
     wasmState.get().ecdsa_verify(pubkeyX, pubkeyY, r, s, message);
+
+export const aes128Demo = (plaintextHex: string, keyHex: string): string =>
+    wasmState.get().aes128_demo(plaintextHex, keyHex);
 
 export const initWasm = async (): Promise<boolean> => {
     try {

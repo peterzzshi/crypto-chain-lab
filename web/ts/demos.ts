@@ -1,6 +1,6 @@
-import { initWasm as initWasmModule, isWasmReady, rsaDemoText, rsaDemoNumber, sha256DemoText, keccak256DemoText, eccDemoSecp256k1, eccDemoWeierstrass, ecdsaSign, ecdsaVerify } from './wasm.ts';
-import { renderRsaResults, renderSha256Results, renderKeccak256Results, renderWeierstrassResults, renderSecp256k1Results, renderEcdsaSignResults, renderEcdsaVerifyResults, renderError, renderLoading } from './ui.ts';
-import type { RsaResult, Sha256Result, Keccak256Result, EccResult, EcdsaSignResult, EcdsaVerifyResult } from './ui.ts';
+import { initWasm as initWasmModule, isWasmReady, rsaDemoText, rsaDemoNumber, sha256DemoText, keccak256DemoText, eccDemoSecp256k1, eccDemoWeierstrass, ecdsaSign, ecdsaVerify, aes128Demo } from './wasm.ts';
+import { renderRsaResults, renderSha256Results, renderKeccak256Results, renderWeierstrassResults, renderSecp256k1Results, renderEcdsaSignResults, renderEcdsaVerifyResults, renderAes128Results, renderError, renderLoading } from './ui.ts';
+import type { RsaResult, Sha256Result, Keccak256Result, EccResult, EcdsaSignResult, EcdsaVerifyResult, Aes128DemoResult } from './ui.ts';
 import { getElement, getTrimmedValue, getValue, isNumericString, validateNonEmpty, parseResult } from './utils.ts';
 import type { ValidationResult, ParsedResult } from './utils.ts';
 
@@ -274,4 +274,35 @@ export const runEcdsaVerifyDemo = (): Promise<void> => runDemo<EcdsaVerifyInputs
     compute: ({ pubkeyX, pubkeyY, r, s, message }) => computeEcdsaVerify(pubkeyX, pubkeyY, r, s, message),
     renderSuccess: renderEcdsaVerifyResults,
     loadingMessage: 'Verifying signature...',
+});
+
+type Aes128Inputs = {
+    readonly plaintextHex: string;
+    readonly keyHex: string;
+    readonly resultsDiv: HTMLElement | null;
+};
+
+const getAes128Inputs = (): Aes128Inputs => ({
+    plaintextHex: getTrimmedValue('aes128-plaintext'),
+    keyHex: getTrimmedValue('aes128-key'),
+    resultsDiv: getElement('aes128-results'),
+});
+
+const validateAes128Inputs = ({ plaintextHex, keyHex }: Aes128Inputs): ValidationResult => {
+    const pt = plaintextHex.replace(/^0x/i, '');
+    const k  = keyHex.replace(/^0x/i, '');
+    if (!/^[0-9a-fA-F]{32}$/.test(pt)) return { valid: false, error: 'Plaintext must be exactly 32 hex characters (16 bytes).' };
+    if (!/^[0-9a-fA-F]{32}$/.test(k))  return { valid: false, error: 'Key must be exactly 32 hex characters (16 bytes).' };
+    return { valid: true };
+};
+
+const computeAes128 = (plaintextHex: string, keyHex: string): ParsedResult<Aes128DemoResult> =>
+    parseResult<Aes128DemoResult>(aes128Demo(plaintextHex, keyHex));
+
+export const runAes128Demo = (): Promise<void> => runDemo<Aes128Inputs, Aes128DemoResult>({
+    getInputs: getAes128Inputs,
+    validate: validateAes128Inputs,
+    compute: ({ plaintextHex, keyHex }) => computeAes128(plaintextHex, keyHex),
+    renderSuccess: renderAes128Results,
+    loadingMessage: 'Encrypting...',
 });

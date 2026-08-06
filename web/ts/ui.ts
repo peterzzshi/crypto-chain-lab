@@ -448,3 +448,46 @@ export const buildEcdsaVerifyResultsHtml = (result: EcdsaVerifyResult): string =
 
 export const renderEcdsaVerifyResults = (container: HTMLElement, result: EcdsaVerifyResult): void =>
     renderToContainer(container, buildEcdsaVerifyResultsHtml(result));
+
+export type Aes128Step = {
+    readonly step_number: number;
+    readonly title: string;
+    readonly description: string;
+    readonly state_hex: readonly string[];
+};
+
+export type Aes128DemoResult = {
+    readonly success: boolean;
+    readonly error?: string;
+    readonly plaintext_hex: string;
+    readonly key_hex: string;
+    readonly ciphertext_hex: string;
+    readonly decrypted_hex: string;
+    readonly steps: readonly Aes128Step[];
+};
+
+export const buildAes128ResultsHtml = (result: Aes128DemoResult): string => {
+    if (!result.success) return buildErrorHtml(result.error ?? 'AES-128 failed');
+    const summary = `
+        <div class="key-display">
+            ${renderKeyCard('🔐', 'AES-128 Result', [
+                `Plaintext:  ${result.plaintext_hex}`,
+                `Key:        ${result.key_hex}`,
+                `Ciphertext: ${result.ciphertext_hex}`,
+                `Decrypted:  ${result.decrypted_hex}`,
+            ])}
+        </div>`;
+    const stepsHtml = result.steps.map(step => `
+        <div class="step-card">
+            <div class="step-number">Step ${step.step_number}</div>
+            <div class="step-title">${step.title}</div>
+            <div class="step-description">${step.description}</div>
+            <div class="step-values">
+                ${step.state_hex.map(line => `<div class="step-value"><code>${line}</code></div>`).join('')}
+            </div>
+        </div>`).join('');
+    return summary + '<div class="steps-container">' + stepsHtml + '</div>';
+};
+
+export const renderAes128Results = (container: HTMLElement, result: Aes128DemoResult): void =>
+    renderToContainer(container, buildAes128ResultsHtml(result));

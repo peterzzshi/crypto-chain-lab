@@ -23,6 +23,8 @@ use crate::sha256::compression::compress_block;
 use crate::sha256::constants::INITIAL_HASH;
 use crate::sha256::math_utils::words_to_hex;
 use crate::sha256::preprocessing::preprocess_message;
+use crate::aes128::demo::run_aes128_demo;
+use crate::aes128::types::Aes128DemoResult;
 
 fn to_json<T: Serialize>(value: &T) -> String {
     serde_json::to_string(value).unwrap_or_else(|_| "{}".to_string())
@@ -1063,4 +1065,47 @@ pub fn ecdsa_verify(pubkey_x_hex: &str, pubkey_y_hex: &str, r_hex: &str, s_hex: 
             "Signature is invalid — message or public key does not match.".to_string()
         },
     })
+}
+
+#[wasm_bindgen]
+pub fn aes128_demo(plaintext_hex: &str, key_hex: &str) -> String {
+    let parse_hex = |s: &str| -> Result<[u8; 16], String> {
+        let clean = s.trim_start_matches("0x").trim_start_matches("0X");
+        if clean.len() != 32 {
+            return Err(format!("Expected 32 hex chars (16 bytes), got {}", clean.len()));
+        }
+        let bytes: Result<Vec<u8>, _> = (0..16)
+            .map(|i| u8::from_str_radix(&clean[i * 2..i * 2 + 2], 16))
+            .collect();
+        bytes
+            .map_err(|_| "Invalid hex characters".to_string())
+            .map(|v| v.try_into().unwrap())
+    };
+
+    let plaintext = match parse_hex(plaintext_hex) {
+        Ok(b) => b,
+        Err(e) => return to_json(&Aes128DemoResult {
+            success: false,
+            error: Some(format!("Invalid plaintext: {}", e)),
+            plaintext_hex: plaintext_hex.to_string(),
+            key_hex: key_hex.to_string(),
+            ciphertext_hex: String::new(),
+            decrypted_hex: String::new(),
+            steps: Vec::new(),
+        }),
+    };
+    let key = match parse_hex(key_hex) {
+        Ok(b) => b,
+        Err(e) => return to_json(&Aes128DemoResult {
+            success: false,
+            error: Some(format!("Invalid key: {}", e)),
+            plaintext_hex: plaintext_hex.to_string(),
+            key_hex: key_hex.to_string(),
+            ciphertext_hex: String::new(),
+            decrypted_hex: String::new(),
+            steps: Vec::new(),
+        }),
+    };
+
+    to_json(&run_aes128_demo(&plaintext, &key))
 }

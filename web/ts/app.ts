@@ -1,4 +1,4 @@
-import { initWasm, runRsaDemo, runSha256Demo, runKeccak256Demo, runWeierstrassDemo, runSecp256k1Demo, runEcdsaSignDemo, runEcdsaVerifyDemo } from './demos.ts';
+import { initWasm, runRsaDemo, runSha256Demo, runKeccak256Demo, runWeierstrassDemo, runSecp256k1Demo, runEcdsaSignDemo, runEcdsaVerifyDemo, runAes128Demo } from './demos.ts';
 import { initBlockchain, startChain, mineBlock, resetChain, exportChain } from './blockchain.ts';
 import { getElement, getElements, debounce } from './utils.ts';
 
@@ -49,6 +49,7 @@ const setupReactiveListeners = (): void => {
     const d300  = debounce(() => void runSha256Demo(), 300);
     const d300k = debounce(() => void runKeccak256Demo(), 300);
     const d400  = debounce(() => void runRsaDemo(), 400);
+    const d400a = debounce(() => void runAes128Demo(), 400);
     const d400w = debounce(() => void runWeierstrassDemo(), 400);
     const d400s = debounce(() => void runSecp256k1Demo(), 400);
 
@@ -57,6 +58,9 @@ const setupReactiveListeners = (): void => {
 
     ['rsa-message', 'rsa-p', 'rsa-q'].forEach(id =>
         getElement(id)?.addEventListener('input', d400)
+    );
+    ['aes128-plaintext', 'aes128-key'].forEach(id =>
+        getElement(id)?.addEventListener('input', d400a)
     );
     ['weierstrass-key', 'weierstrass-a', 'weierstrass-b', 'weierstrass-p', 'weierstrass-gx', 'weierstrass-gy'].forEach(id =>
         getElement(id)?.addEventListener('input', d400w)
@@ -134,6 +138,7 @@ const init = async (): Promise<void> => {
     void runKeccak256Demo();
     void runWeierstrassDemo();
     void runSecp256k1Demo();
+    void runAes128Demo();
 };
 
 void init();

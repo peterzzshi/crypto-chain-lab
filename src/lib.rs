@@ -1,3 +1,4 @@
+pub mod aes128;
 pub mod blockchain;
 pub mod common;
 pub mod ecc;
