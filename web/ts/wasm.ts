@@ -14,6 +14,7 @@ type WasmModule = {
     readonly blockchain_create_genesis: (hash_algo: string, difficulty: number, timestamp: number) => string;
     readonly blockchain_mine_block: (chain_json: string, data: string, hash_algo: string, difficulty: number, timestamp: number) => string;
     readonly blockchain_validate: (chain_json: string) => string;
+    readonly blockchain_merkle_proof: (chain_json: string) => string;
     readonly blockchain_tamper: (chain_json: string, block_index: number, new_data: string) => string;
     readonly ecdsa_sign: (private_key_hex: string, message: string) => string;
     readonly ecdsa_verify: (pubkey_x: string, pubkey_y: string, r: string, s: string, message: string) => string;
@@ -67,6 +68,9 @@ export const blockchainMineBlock = (chainJson: string, data: string, hashAlgo: s
 
 export const blockchainValidate = (chainJson: string): string =>
     wasmState.get().blockchain_validate(chainJson);
+
+export const blockchainMerkleProof = (chainJson: string): string =>
+    wasmState.get().blockchain_merkle_proof(chainJson);
 
 export const blockchainTamper = (chainJson: string, blockIndex: number, newData: string): string =>
     wasmState.get().blockchain_tamper(chainJson, blockIndex, newData);

@@ -13,6 +13,7 @@ use crate::rsa::math_utils::is_prime;
 use crate::rsa::text_encoding::number_to_text;
 use crate::blockchain::{
     chain::{create_genesis, mine_next_block, tamper_block, validate_chain},
+    merkle::merkle_root,
     types::{Chain, ChainResult, MineBlockResult},
 };
 use crate::ecc::ecdsa::{sign as ecdsa_sign_inner, verify as ecdsa_verify_inner};
@@ -932,6 +933,22 @@ pub fn blockchain_validate(chain_json: &str) -> String {
         }
     };
     to_json(&validate_chain(&chain))
+}
+
+#[wasm_bindgen]
+pub fn blockchain_merkle_proof(chain_json: &str) -> String {
+    let chain: Chain = match serde_json::from_str(chain_json) {
+        Ok(c) => c,
+        Err(e) => return to_json(&crate::blockchain::merkle::MerkleResult {
+            success: false,
+            error: Some(e.to_string()),
+            root: None,
+            tree: None,
+            leaf_count: 0,
+        }),
+    };
+    let hashes: Vec<String> = chain.blocks.iter().map(|b| b.hash.clone()).collect();
+    to_json(&merkle_root(hashes))
 }
 
 #[wasm_bindgen]

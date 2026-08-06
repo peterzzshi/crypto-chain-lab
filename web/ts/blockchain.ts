@@ -1,5 +1,6 @@
-import { isWasmReady, blockchainCreateGenesis, blockchainMineBlock, blockchainValidate, blockchainTamper } from './wasm.ts';
+import { isWasmReady, blockchainCreateGenesis, blockchainMineBlock, blockchainValidate, blockchainTamper, blockchainMerkleProof } from './wasm.ts';
 import { getElement } from './utils.ts';
+import { buildMerkleHtml, type MerkleResult } from './ui.ts';
 
 type Block = {
     readonly index: number;
@@ -152,6 +153,14 @@ const renderHistory = (): void => {
         <div style="border-top:1px solid #1f2937;margin:1rem 0 0.5rem;"></div>`;
 };
 
+const renderMerkle = (): void => {
+    if (!chainState) return;
+    const el = getElement('blockchain-merkle');
+    if (!el) return;
+    const result: MerkleResult = JSON.parse(blockchainMerkleProof(JSON.stringify(chainState)));
+    el.innerHTML = buildMerkleHtml(result);
+};
+
 const revalidateAndRender = (): void => {
     if (!chainState) return;
     const chainJson = JSON.stringify(chainState);
@@ -166,6 +175,7 @@ const revalidateAndRender = (): void => {
         ).join('');
     }
     setStatus(validation.message, validation.valid);
+    renderMerkle();
 };
 
 export const startChain = (): void => {
@@ -274,6 +284,8 @@ export const resetChain = (): void => {
     if (chainEl) chainEl.innerHTML = '';
     const stepsEl = getElement('blockchain-steps');
     if (stepsEl) stepsEl.innerHTML = '';
+    const merkleEl = getElement('blockchain-merkle');
+    if (merkleEl) merkleEl.innerHTML = '';
 };
 
 export const initBlockchain = (): void => {

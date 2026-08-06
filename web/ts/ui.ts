@@ -56,6 +56,40 @@ export type Keccak256Result = {
     readonly steps: readonly Keccak256Step[];
 }
 
+export type MerkleResult = {
+    readonly success: boolean;
+    readonly error?: string;
+    readonly root?: string;
+    readonly tree?: readonly (readonly string[])[];
+    readonly leaf_count: number;
+}
+
+export const buildMerkleHtml = (result: MerkleResult): string => {
+    if (!result.success || !result.root || !result.tree) {
+        return `<div style="color:#ef4444;font-size:0.875rem;">${result.error ?? 'Merkle error'}</div>`;
+    }
+    const short = (h: string): string => `${h.slice(0, 8)}…${h.slice(-4)}`;
+    const levels = [...result.tree].reverse();
+    const levelHtml = levels.map((level, li) => {
+        const label = li === 0 ? 'Root' : li === levels.length - 1 ? 'Leaves (block hashes)' : `Level ${levels.length - 1 - li}`;
+        const cells = level.map(h =>
+            `<span style="display:inline-block;padding:0.2rem 0.45rem;background:#111827;border:1px solid #374151;border-radius:4px;font-family:monospace;font-size:0.7rem;color:${li === 0 ? '#4ade80' : '#9ca3af'};white-space:nowrap;" title="${h}">${short(h)}</span>`
+        ).join('<span style="color:#4b5563;margin:0 0.2rem;">·</span>');
+        return `<div style="margin-bottom:0.5rem;"><span style="font-size:0.7rem;color:#6b7280;display:block;margin-bottom:0.2rem;">${label}</span><div style="display:flex;flex-wrap:wrap;gap:0.25rem;align-items:center;">${cells}</div></div>`;
+    }).join('<div style="text-align:center;color:#4b5563;font-size:0.8rem;margin:0.15rem 0;">↑</div>');
+    return `
+        <div style="padding:1rem;background:#0d1117;border:1px solid #1f2937;border-radius:8px;margin-top:0.75rem;">
+            <div style="font-size:0.75rem;color:#6b7280;letter-spacing:0.07em;text-transform:uppercase;margin-bottom:0.75rem;">
+                Merkle Tree — ${result.leaf_count} leaf${result.leaf_count !== 1 ? 'ves' : ''}
+            </div>
+            ${levelHtml}
+            <div style="margin-top:0.75rem;border-top:1px solid #1f2937;padding-top:0.5rem;">
+                <span style="font-size:0.7rem;color:#6b7280;">Root: </span>
+                <span style="font-family:monospace;font-size:0.75rem;color:#4ade80;word-break:break-all;">${result.root}</span>
+            </div>
+        </div>`;
+};
+
 const renderStepCard = (stepNumber: number, title: string, description: string, content: string): string => `
     <div class="step-card">
         <div class="step-title">

@@ -1,5 +1,6 @@
 pub mod chain;
 pub mod hash;
+pub mod merkle;
 pub mod mining;
 pub mod types;
 
