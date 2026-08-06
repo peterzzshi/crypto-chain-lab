@@ -1,7 +1,7 @@
 import { getElement } from './utils.ts';
 import { renderError } from './ui.ts';
 
-interface WasmModule {
+type WasmModule = {
     readonly default: () => Promise<void>;
     readonly rsa_demo_text: (text: string, p: string, q: string) => string;
     readonly rsa_demo_number: (message: string, p: string, q: string) => string;
@@ -19,7 +19,7 @@ interface WasmModule {
     readonly ecdsa_verify: (pubkey_x: string, pubkey_y: string, r: string, s: string, message: string) => string;
 }
 
-interface WasmState {
+type WasmState = {
     readonly isReady: () => boolean;
     readonly get: () => WasmModule;
     readonly initialise: (module: WasmModule) => void;

@@ -1,4 +1,4 @@
-export interface RsaKeyPair {
+export type RsaKeyPair = {
     readonly n: string;
     readonly e: string;
     readonly d: string;
@@ -7,7 +7,7 @@ export interface RsaKeyPair {
     readonly phi_n: string;
 }
 
-export interface RsaStep {
+export type RsaStep = {
     readonly step_number: number;
     readonly title: string;
     readonly description: string;
@@ -15,7 +15,7 @@ export interface RsaStep {
     readonly result: string;
 }
 
-export interface RsaBlock {
+export type RsaBlock = {
     readonly index: number;
     readonly text_chunk: string;
     readonly message_number: string;
@@ -23,7 +23,7 @@ export interface RsaBlock {
     readonly decrypted_number: string;
 }
 
-export interface RsaResult {
+export type RsaResult = {
     readonly key_pair?: RsaKeyPair;
     readonly steps: readonly RsaStep[];
     readonly success: boolean;
@@ -32,26 +32,26 @@ export interface RsaResult {
     readonly blocks?: readonly RsaBlock[];
 }
 
-export interface Sha256Step {
+export type Sha256Step = {
     readonly step_number: number;
     readonly title: string;
     readonly description: string;
     readonly data?: readonly string[];
 }
 
-export interface Sha256Result {
+export type Sha256Result = {
     readonly hash: string;
     readonly steps: readonly Sha256Step[];
 }
 
-export interface Keccak256Step {
+export type Keccak256Step = {
     readonly step_number: number;
     readonly title: string;
     readonly description: string;
     readonly data?: readonly string[];
 }
 
-export interface Keccak256Result {
+export type Keccak256Result = {
     readonly hash: string;
     readonly steps: readonly Keccak256Step[];
 }
@@ -183,7 +183,7 @@ export const renderLoading = (container: HTMLElement, message: string): void =>
 // ECC Types
 // ============================================================================
 
-export interface EccStep {
+export type EccStep = {
     readonly step_number: number;
     readonly title: string;
     readonly description: string;
@@ -191,7 +191,7 @@ export interface EccStep {
     readonly result: string;
 }
 
-export interface EccKeyPairResult {
+export type EccKeyPairResult = {
     readonly private_key: string;
     readonly public_key_x: string;
     readonly public_key_y: string;
@@ -200,7 +200,7 @@ export interface EccKeyPairResult {
     readonly curve: string;
 }
 
-export interface EccResult {
+export type EccResult = {
     readonly success: boolean;
     readonly error?: string;
     readonly key_pair?: EccKeyPairResult;
@@ -266,16 +266,20 @@ const renderSecp256k1CurveSvg = (): string => {
     const toX = (x: number): string => (margin + ((x - xMin) / (xMax - xMin)) * span).toFixed(1);
     const toY = (y: number): string => (size - margin - ((y - yMin) / (yMax - yMin)) * span).toFixed(1);
 
-    const posPoints: string[] = [];
-    const negPoints: string[] = [];
-    for (let xi = xMin; xi <= xMax; xi += 0.04) {
-        const y2 = xi ** 3 + 7;
-        if (y2 >= 0) {
+    const steps = Math.round((xMax - xMin) / 0.04) + 1;
+    const xValues = Array.from({ length: steps }, (_, i) => xMin + i * 0.04);
+    const { posPoints, negPoints } = xValues.reduce<{ posPoints: string[]; negPoints: string[] }>(
+        (acc, xi) => {
+            const y2 = xi ** 3 + 7;
+            if (y2 < 0) return acc;
             const y = Math.sqrt(y2);
-            posPoints.push(`${toX(xi)},${toY(y)}`);
-            negPoints.push(`${toX(xi)},${toY(-y)}`);
-        }
-    }
+            return {
+                posPoints: [...acc.posPoints, `${toX(xi)},${toY(y)}`],
+                negPoints: [...acc.negPoints, `${toX(xi)},${toY(-y)}`],
+            };
+        },
+        { posPoints: [], negPoints: [] },
+    );
 
     const axes = `<line x1="${toX(xMin)}" y1="${toY(0)}" x2="${toX(xMax)}" y2="${toY(0)}" stroke="#374151" stroke-width="1"/>` +
         `<line x1="${toX(0)}" y1="${toY(yMin)}" x2="${toX(0)}" y2="${toY(yMax)}" stroke="#374151" stroke-width="1"/>`;
@@ -355,7 +359,7 @@ export const renderWeierstrassResults = (container: HTMLElement, result: EccResu
 export const renderSecp256k1Results = (container: HTMLElement, result: EccResult): void =>
     renderToContainer(container, buildSecp256k1ResultsHtml(result));
 
-export interface EcdsaSignResult {
+export type EcdsaSignResult = {
     readonly success: boolean;
     readonly error?: string;
     readonly r?: string;
@@ -388,3 +392,25 @@ export const buildEcdsaSignResultsHtml = (result: EcdsaSignResult): string => {
 
 export const renderEcdsaSignResults = (container: HTMLElement, result: EcdsaSignResult): void =>
     renderToContainer(container, buildEcdsaSignResultsHtml(result));
+
+export type EcdsaVerifyResult = {
+    readonly valid: boolean;
+    readonly error?: string;
+    readonly message: string;
+}
+
+export const buildEcdsaVerifyResultsHtml = (result: EcdsaVerifyResult): string => {
+    if (result.error) return buildErrorHtml(result.error);
+    const color = result.valid ? '#4ade80' : '#f87171';
+    const icon = result.valid ? '✅' : '❌';
+    const label = result.valid ? 'Signature is VALID' : 'Signature is INVALID';
+    return `
+        <div class="step-card" style="border-left:3px solid ${color}">
+            <div class="step-title" style="color:${color}">${icon} ${label}</div>
+            <div class="step-description">${result.message}</div>
+        </div>
+    `;
+};
+
+export const renderEcdsaVerifyResults = (container: HTMLElement, result: EcdsaVerifyResult): void =>
+    renderToContainer(container, buildEcdsaVerifyResultsHtml(result));

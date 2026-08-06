@@ -1,8 +1,10 @@
 use super::constants::{secp256k1, weierstrass_demo};
+use super::ecdsa::{sign as ecdsa_sign, verify as ecdsa_verify};
 use super::key_generation::keypair_from_hex;
 use super::math_utils::{point_to_str, scalar_mul_with_steps};
-use super::types::CurvePoint;
+use super::types::{CurvePoint, EcdsaSignature};
 use num_bigint::BigUint;
+use sha2::{Digest, Sha256};
 
 pub fn run_ecc_demo_secp256k1(private_key_hex: &str) -> Result<(), String> {
     let params = secp256k1();
@@ -68,6 +70,46 @@ pub fn run_ecc_demo_weierstrass(k: u32) -> Result<(), String> {
             println!("  {} · ({}, {}) = ({}, {})", k, params.g.x, params.g.y, p.x, p.y);
         }
     }
+
+    Ok(())
+}
+
+pub fn run_ecdsa_demo(private_key_hex: &str, message: &str) -> Result<(), String> {
+    let params = secp256k1();
+    let keypair = keypair_from_hex(private_key_hex, &params)?;
+
+    let hash: [u8; 32] = Sha256::digest(message.as_bytes()).into();
+
+    let sig = ecdsa_sign(&hash, &keypair.private_key, &params)
+        .ok_or("signing failed (r or s was zero)")?;
+
+    let pub_pt = match &keypair.public_key {
+        CurvePoint::Finite(p) => p,
+        CurvePoint::Infinity => return Err("public key is point at infinity".to_string()),
+    };
+
+    println!("✍️  ECDSA Sign / Verify Demo (secp256k1 + RFC 6979)");
+    println!("Private key : 0x{}", private_key_hex.trim_start_matches("0x"));
+    println!("Message     : \"{}\"", message);
+    println!("SHA-256(msg): {}", hex::encode(hash));
+    println!("\n=== Public Key ===");
+    println!("  Qx = 0x{:0>64}", pub_pt.x.to_str_radix(16));
+    println!("  Qy = 0x{:0>64}", pub_pt.y.to_str_radix(16));
+    println!("\n=== Signature (r, s) ===");
+    println!("  r  = 0x{:0>64}", sig.r.to_str_radix(16));
+    println!("  s  = 0x{:0>64}", sig.s.to_str_radix(16));
+
+    let valid = ecdsa_verify(&hash, &sig, &keypair.public_key, &params);
+    println!("\n=== Verification ===");
+    println!("  {} (same key + message)", if valid { "✅ VALID" } else { "❌ INVALID" });
+
+    // Demonstrate that tampering breaks verification
+    let bad_sig = EcdsaSignature {
+        r: sig.r.clone(),
+        s: (&sig.s + BigUint::from(1u32)) % &params.n,
+    };
+    let tampered = ecdsa_verify(&hash, &bad_sig, &keypair.public_key, &params);
+    println!("  {} (s incremented by 1)", if tampered { "✅ VALID" } else { "❌ INVALID — tampered s rejected" });
 
     Ok(())
 }

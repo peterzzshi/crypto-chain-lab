@@ -11,10 +11,10 @@ pub fn hash_bytes(data: &[u8], algo: &str) -> String {
         "keccak256" => hex::encode(keccak256(data)),
         _ => {
             let processed = preprocess_message(data);
-            let mut state = INITIAL_HASH;
-            for block in &processed.blocks {
-                state = compress_block(state, block, false);
-            }
+            let state = processed
+                .blocks
+                .iter()
+                .fold(INITIAL_HASH, |s, block| compress_block(s, block, false));
             words_to_hex(&state)
         }
     }

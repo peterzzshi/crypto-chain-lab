@@ -44,13 +44,16 @@ pub fn mine_next_block(
         hash_algo: hash_algo.to_string(),
     };
     let attempts = result.nonce + 1;
-    let mut new_chain = chain;
-    new_chain.blocks.push(block.clone());
+    let blocks = chain
+        .blocks
+        .into_iter()
+        .chain(std::iter::once(block.clone()))
+        .collect();
     MineBlockResult {
         success: true,
         error: None,
         block: Some(block),
-        chain: Some(new_chain),
+        chain: Some(Chain { blocks }),
         steps: result.steps,
         attempts,
     }
@@ -107,7 +110,7 @@ pub fn validate_chain(chain: &Chain) -> ValidateResult {
     }
 }
 
-pub fn tamper_block(mut chain: Chain, index: usize, new_data: &str) -> ChainResult {
+pub fn tamper_block(chain: Chain, index: usize, new_data: &str) -> ChainResult {
     if index >= chain.blocks.len() {
         return ChainResult {
             success: false,
@@ -115,10 +118,21 @@ pub fn tamper_block(mut chain: Chain, index: usize, new_data: &str) -> ChainResu
             chain: None,
         };
     }
-    chain.blocks[index].data = new_data.to_string();
+    let blocks = chain
+        .blocks
+        .into_iter()
+        .enumerate()
+        .map(|(i, b)| {
+            if i == index {
+                super::types::Block { data: new_data.to_string(), ..b }
+            } else {
+                b
+            }
+        })
+        .collect();
     ChainResult {
         success: true,
         error: None,
-        chain: Some(chain),
+        chain: Some(Chain { blocks }),
     }
 }

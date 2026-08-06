@@ -36,6 +36,16 @@ enum Algorithm {
         #[arg(short, long, default_value = "secp256k1")]
         curve: String,
     },
+
+    Ecdsa {
+        /// 32-byte hex private key on secp256k1
+        #[arg(short, long)]
+        key: String,
+
+        /// Message to sign
+        #[arg(short, long)]
+        message: String,
+    },
 }
 
 fn main() {
@@ -61,6 +71,11 @@ fn main() {
         }
         Algorithm::Ecc { key, curve } => {
             if let Err(e) = ecc::demo::run_ecc_demo(&key, &curve) {
+                eprintln!("\u{274c} Error: {}", e);
+            }
+        }
+        Algorithm::Ecdsa { key, message } => {
+            if let Err(e) = ecc::demo::run_ecdsa_demo(&key, &message) {
                 eprintln!("\u{274c} Error: {}", e);
             }
         }

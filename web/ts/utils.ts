@@ -21,11 +21,11 @@ export const parseIntSafe = (value: string): number | null => {
 
 export const isNumericString = (str: string): boolean => /^\d+$/.test(str);
 
-export interface ValidationSuccess {
+export type ValidationSuccess = {
     readonly valid: true;
 }
 
-export interface ValidationError {
+export type ValidationError = {
     readonly valid: false;
     readonly error: string;
 }
@@ -44,12 +44,12 @@ export const validateNumbers = (...values: readonly (number | null)[]): Validati
         ? validationSuccess
         : validationError('Please enter valid prime numbers');
 
-export interface ParsedResultOk<T> {
+export type ParsedResultOk<T> = {
     readonly ok: true;
     readonly data: T;
 }
 
-export interface ParsedResultError {
+export type ParsedResultError = {
     readonly ok: false;
     readonly error: string;
 }

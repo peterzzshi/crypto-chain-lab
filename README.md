@@ -11,13 +11,14 @@ Implementing cryptographic primitives **from scratch** in Rust and exposes them 
 | **Keccak-256** | Sponge construction, Keccak-f[1600] permutation |
 | **ECC Weierstrass** | Point addition, scalar multiplication on generic curves |
 | **secp256k1** | Bitcoin's curve — public key derivation from a private key |
+| **ECDSA** | RFC 6979 deterministic signing + verification on secp256k1 |
 | **Blockchain (PoW)** | Genesis + mining with SHA-256 or Keccak-256, chain validation, tamper detection |
 
 ## 🚀 Quick start
 
 ### Interactive web demo
 
-**Live:** https://peterzzshi.github.io/encryption-algorithms-demo/
+**Live:** https://peterzzshi.github.io/crypto-chain-lab/
 
 Local development:
 

@@ -203,6 +203,42 @@
                 </button>
                 <div id="ecdsa-results" class="results" style="margin-top:1rem;"></div>
             </div>
+
+            <!-- ECDSA Verify sub-section -->
+            <div style="margin-top:2rem;border-top:1px solid #1f2937;padding-top:1.5rem;">
+                <h3 style="margin-bottom:0.5rem;color:#e5e7eb;">ECDSA Signature Verification</h3>
+                <p style="color:#888;font-size:0.9rem;margin-bottom:1rem;">
+                    Auto-populated after signing above. You can also paste any public key, signature (r, s), and message to verify any secp256k1 ECDSA signature.
+                </p>
+                <div class="input-group">
+                    <div class="input-field">
+                        <label for="ecdsa-verify-pubkey-x">Public key X (hex)</label>
+                        <input type="text" id="ecdsa-verify-pubkey-x" placeholder="79BE667EF9DCBBAC...">
+                    </div>
+                    <div class="input-field">
+                        <label for="ecdsa-verify-pubkey-y">Public key Y (hex)</label>
+                        <input type="text" id="ecdsa-verify-pubkey-y" placeholder="483ADA7726A3C465...">
+                    </div>
+                    <div class="input-field">
+                        <label for="ecdsa-verify-r">r (hex)</label>
+                        <input type="text" id="ecdsa-verify-r" placeholder="signature r">
+                    </div>
+                    <div class="input-field">
+                        <label for="ecdsa-verify-s">s (hex)</label>
+                        <input type="text" id="ecdsa-verify-s" placeholder="signature s">
+                    </div>
+                    <div class="input-field" style="grid-column:1/-1;">
+                        <label for="ecdsa-verify-message">Message</label>
+                        <input type="text" id="ecdsa-verify-message" placeholder="Hello, secp256k1!">
+                    </div>
+                </div>
+                <button id="ecdsa-verify-btn"
+                    style="margin-top:0.75rem;padding:0.6rem 1.5rem;background:linear-gradient(90deg,#0d9488,#0891b2);border:none;border-radius:8px;color:#fff;font-size:0.95rem;cursor:pointer;">
+                    Verify Signature
+                </button>
+
+                <div id="ecdsa-verify-results" class="results" style="margin-top:1rem;"></div>
+            </div>
         </div>
 
         <!-- Blockchain Panel -->
@@ -228,8 +264,11 @@
                         Difficulty: <span id="blockchain-difficulty-label">2</span>
                         <span style="color:#6b7280;font-size:0.75rem;margin-left:0.5rem">(leading zero hex digits)</span>
                     </label>
-                    <input type="range" id="blockchain-difficulty" min="1" max="4" value="2"
-                        style="width:100%;accent-color:#3a7bd5;margin-top:0.5rem;">
+                    <input type="range" id="blockchain-difficulty" min="1" max="5" value="2"
+                        style="width:100%;accent-color:#3a7bd5;margin-top:0.5rem;cursor:pointer;">
+                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:#4b5563;margin-top:0.15rem;">
+                        <span>1</span><span>2</span><span>3</span><span>4</span><span style="color:#f87171">5 (slow)</span>
+                    </div>
                 </div>
                 <div class="input-field" style="display:flex;align-items:flex-end;gap:0.75rem;">
                     <button id="blockchain-start-btn"
@@ -239,6 +278,10 @@
                     <button id="blockchain-reset-btn"
                         style="padding:0.75rem 1rem;background:#374151;border:none;border-radius:8px;color:#9ca3af;font-size:1rem;cursor:pointer;">
                         Reset
+                    </button>
+                    <button id="blockchain-export-btn"
+                        style="padding:0.75rem 1rem;background:#1f2937;border:1px solid #374151;border-radius:8px;color:#6b7280;font-size:1rem;cursor:pointer;">
+                        Export JSON
                     </button>
                 </div>
             </div>
@@ -264,6 +307,9 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Chain history (previous chains) -->
+            <div id="blockchain-history"></div>
 
             <!-- Chain visualization -->
             <div id="blockchain-chain" style="margin-bottom:1.5rem;"></div>

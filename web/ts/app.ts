@@ -1,5 +1,5 @@
-import { initWasm, runRsaDemo, runSha256Demo, runKeccak256Demo, runWeierstrassDemo, runSecp256k1Demo, runEcdsaSignDemo } from './demos.ts';
-import { initBlockchain, startChain, mineBlock, resetChain } from './blockchain.ts';
+import { initWasm, runRsaDemo, runSha256Demo, runKeccak256Demo, runWeierstrassDemo, runSecp256k1Demo, runEcdsaSignDemo, runEcdsaVerifyDemo } from './demos.ts';
+import { initBlockchain, startChain, mineBlock, resetChain, exportChain } from './blockchain.ts';
 import { getElement, getElements, debounce } from './utils.ts';
 
 const showPanel = (tabName: string): void => {
@@ -90,6 +90,26 @@ const setupExampleKeyChips = (): void => {
     });
 };
 
+const copySignatureToVerify = (): void => {
+    const resultsDiv = getElement('ecdsa-results');
+    if (!resultsDiv) return;
+    const keyValues = Array.from(resultsDiv.querySelectorAll('.key-value'));
+    const extract = (label: string): string => {
+        const el = keyValues.find(v => v.textContent?.trimStart().startsWith(`${label} =`));
+        return el?.textContent?.split('=').slice(1).join('=').trim() ?? '';
+    };
+    const set = (id: string, val: string): void => {
+        const el = getElement(id) as HTMLInputElement | null;
+        if (el) el.value = val;
+    };
+    set('ecdsa-verify-pubkey-x', extract('x'));
+    set('ecdsa-verify-pubkey-y', extract('y'));
+    set('ecdsa-verify-r', extract('r'));
+    set('ecdsa-verify-s', extract('s'));
+    const msgInput = getElement('ecdsa-message') as HTMLInputElement | null;
+    set('ecdsa-verify-message', msgInput?.value ?? '');
+};
+
 const init = async (): Promise<void> => {
     setupTabListeners();
     // Show RSA panel by default
@@ -101,8 +121,13 @@ const init = async (): Promise<void> => {
     getElement('blockchain-start-btn')?.addEventListener('click', startChain);
     getElement('blockchain-mine-btn')?.addEventListener('click', mineBlock);
     getElement('blockchain-reset-btn')?.addEventListener('click', resetChain);
+    getElement('blockchain-export-btn')?.addEventListener('click', exportChain);
     initBlockchain();
-    getElement('ecdsa-sign-btn')?.addEventListener('click', () => void runEcdsaSignDemo());
+    getElement('ecdsa-sign-btn')?.addEventListener('click', async () => {
+        await runEcdsaSignDemo();
+        copySignatureToVerify();
+    });
+    getElement('ecdsa-verify-btn')?.addEventListener('click', () => void runEcdsaVerifyDemo());
     // Pre-run all algorithm demos
     void runRsaDemo();
     void runSha256Demo();

@@ -1,19 +1,19 @@
-import { initWasm as initWasmModule, isWasmReady, rsaDemoText, rsaDemoNumber, sha256DemoText, keccak256DemoText, eccDemoSecp256k1, eccDemoWeierstrass, ecdsaSign } from './wasm.ts';
-import { renderRsaResults, renderSha256Results, renderKeccak256Results, renderWeierstrassResults, renderSecp256k1Results, renderEcdsaSignResults, renderError, renderLoading } from './ui.ts';
-import type { RsaResult, Sha256Result, Keccak256Result, EccResult, EcdsaSignResult } from './ui.ts';
+import { initWasm as initWasmModule, isWasmReady, rsaDemoText, rsaDemoNumber, sha256DemoText, keccak256DemoText, eccDemoSecp256k1, eccDemoWeierstrass, ecdsaSign, ecdsaVerify } from './wasm.ts';
+import { renderRsaResults, renderSha256Results, renderKeccak256Results, renderWeierstrassResults, renderSecp256k1Results, renderEcdsaSignResults, renderEcdsaVerifyResults, renderError, renderLoading } from './ui.ts';
+import type { RsaResult, Sha256Result, Keccak256Result, EccResult, EcdsaSignResult, EcdsaVerifyResult } from './ui.ts';
 import { getElement, getTrimmedValue, getValue, isNumericString, validateNonEmpty, parseResult } from './utils.ts';
 import type { ValidationResult, ParsedResult } from './utils.ts';
 
 export { initWasmModule as initWasm };
 
-interface RsaInputs {
+type RsaInputs = {
     readonly message: string;
     readonly p: string;
     readonly q: string;
     readonly resultsDiv: HTMLElement | null;
 }
 
-interface WeierstrassInputs {
+type WeierstrassInputs = {
     readonly key: string;
     readonly a: string;
     readonly b: string;
@@ -23,28 +23,37 @@ interface WeierstrassInputs {
     readonly resultsDiv: HTMLElement | null;
 }
 
-interface Secp256k1Inputs {
+type Secp256k1Inputs = {
     readonly key: string;
     readonly resultsDiv: HTMLElement | null;
 }
 
-interface EcdsaSignInputs {
+type EcdsaSignInputs = {
     readonly key: string;
     readonly message: string;
     readonly resultsDiv: HTMLElement | null;
 }
 
-interface Sha256Inputs {
+type EcdsaVerifyInputs = {
+    readonly pubkeyX: string;
+    readonly pubkeyY: string;
+    readonly r: string;
+    readonly s: string;
     readonly message: string;
     readonly resultsDiv: HTMLElement | null;
 }
 
-interface Keccak256Inputs {
+type Sha256Inputs = {
     readonly message: string;
     readonly resultsDiv: HTMLElement | null;
 }
 
-interface DemoConfig<TInputs, TResult> {
+type Keccak256Inputs = {
+    readonly message: string;
+    readonly resultsDiv: HTMLElement | null;
+}
+
+type DemoConfig<TInputs, TResult> = {
     readonly getInputs: () => TInputs;
     readonly validate: (inputs: TInputs) => ValidationResult;
     readonly compute: (inputs: TInputs) => ParsedResult<TResult>;
@@ -90,6 +99,15 @@ const getEcdsaSignInputs = (): EcdsaSignInputs => ({
     resultsDiv: getElement('ecdsa-results'),
 });
 
+const getEcdsaVerifyInputs = (): EcdsaVerifyInputs => ({
+    pubkeyX: getTrimmedValue('ecdsa-verify-pubkey-x'),
+    pubkeyY: getTrimmedValue('ecdsa-verify-pubkey-y'),
+    r: getTrimmedValue('ecdsa-verify-r'),
+    s: getTrimmedValue('ecdsa-verify-s'),
+    message: getTrimmedValue('ecdsa-verify-message'),
+    resultsDiv: getElement('ecdsa-verify-results'),
+});
+
 const validateRsaInputs = ({ message, p, q }: RsaInputs): ValidationResult => {
     const messageCheck = validateNonEmpty(message, 'a message');
     if (!messageCheck.valid) return messageCheck;
@@ -105,10 +123,9 @@ const validateKeccak256Inputs = ({ message }: Keccak256Inputs): ValidationResult
     validateNonEmpty(message, 'a message');
 
 const validateWeierstrassInputs = ({ key, a, b, p, gx, gy }: WeierstrassInputs): ValidationResult => {
-    for (const [name, val] of [['k', key], ['a', a], ['b', b], ['p', p], ['Gx', gx], ['Gy', gy]] as [string, string][]) {
-        if (!val || !/^\d+$/.test(val)) return { valid: false, error: `${name} must be a non-negative integer` };
-    }
-    return { valid: true };
+    const fields: [string, string][] = [['k', key], ['a', a], ['b', b], ['p', p], ['Gx', gx], ['Gy', gy]];
+    const bad = fields.find(([, val]) => !val || !/^\d+$/.test(val));
+    return bad ? { valid: false, error: `${bad[0]} must be a non-negative integer` } : { valid: true };
 };
 
 const validateSecp256k1Inputs = ({ key }: Secp256k1Inputs): ValidationResult => {
@@ -124,6 +141,20 @@ const validateEcdsaSignInputs = ({ key, message }: EcdsaSignInputs): ValidationR
     const keyCheck = validateSecp256k1Inputs({ key, resultsDiv: null });
     if (!keyCheck.valid) return keyCheck;
     return validateNonEmpty(message, 'a message to sign');
+};
+
+const isHex64 = (v: string): boolean => /^(0x)?[0-9a-fA-F]{1,64}$/.test(v);
+
+const validateEcdsaVerifyInputs = ({ pubkeyX, pubkeyY, r, s, message }: EcdsaVerifyInputs): ValidationResult => {
+    const fields: [string, string][] = [['Public key X', pubkeyX], ['Public key Y', pubkeyY], ['r', r], ['s', s]];
+    const firstError = fields.reduce<ValidationResult | null>((err, [name, val]) => {
+        if (err) return err;
+        const ne = validateNonEmpty(val, name);
+        if (!ne.valid) return ne;
+        return isHex64(val) ? null : { valid: false, error: `${name} must be a hex string (up to 64 chars)` };
+    }, null);
+    if (firstError) return firstError;
+    return validateNonEmpty(message, 'a message');
 };
 
 const computeRsa = (message: string, p: string, q: string): ParsedResult<RsaResult> => {
@@ -147,6 +178,9 @@ const computeSecp256k1 = (key: string): ParsedResult<EccResult> =>
 
 const computeEcdsaSign = (key: string, message: string): ParsedResult<EcdsaSignResult> =>
     parseResult<EcdsaSignResult>(ecdsaSign(key, message));
+
+const computeEcdsaVerify = (pubkeyX: string, pubkeyY: string, r: string, s: string, message: string): ParsedResult<EcdsaVerifyResult> =>
+    parseResult<EcdsaVerifyResult>(ecdsaVerify(pubkeyX, pubkeyY, r, s, message));
 
 const runDemo = async <TInputs extends { resultsDiv: HTMLElement | null }, TResult>({
     getInputs,
@@ -232,4 +266,12 @@ export const runEcdsaSignDemo = (): Promise<void> => runDemo<EcdsaSignInputs, Ec
     compute: ({ key, message }) => computeEcdsaSign(key, message),
     renderSuccess: renderEcdsaSignResults,
     loadingMessage: 'Signing message...',
+});
+
+export const runEcdsaVerifyDemo = (): Promise<void> => runDemo<EcdsaVerifyInputs, EcdsaVerifyResult>({
+    getInputs: getEcdsaVerifyInputs,
+    validate: validateEcdsaVerifyInputs,
+    compute: ({ pubkeyX, pubkeyY, r, s, message }) => computeEcdsaVerify(pubkeyX, pubkeyY, r, s, message),
+    renderSuccess: renderEcdsaVerifyResults,
+    loadingMessage: 'Verifying signature...',
 });

@@ -21,8 +21,13 @@ pub fn mine(
 
     steps.push(MineStep {
         step_number: 1,
-        title: "Block Header Construction".to_string(),
-        description: "Assemble the block header fields. The nonce starts at 0 and increments until the hash meets the difficulty target.".to_string(),
+        title: format!("Block Header & PoW Target — Difficulty {difficulty}"),
+        description: format!(
+            "Assemble the header fields below, then find a nonce so that Hash(header ‖ nonce) begins with {} zero hex digit(s) ({} leading zero bits). Expected average attempts: {}.",
+            difficulty,
+            bits,
+            if bits < 64 { (1u64 << bits).to_string() } else { "very large".to_string() }
+        ),
         data: vec![
             format!("Index:         {}", index),
             format!("Timestamp:     {}", timestamp),
@@ -30,25 +35,12 @@ pub fn mine(
             format!("Previous Hash: {}", previous_hash),
             format!("Algorithm:     {}", hash_algo),
             format!("Difficulty:    {} (target prefix: \"{}\")", difficulty, target),
-        ],
-    });
-
-    steps.push(MineStep {
-        step_number: 2,
-        title: format!("Proof of Work — Difficulty {difficulty}"),
-        description: format!(
-            "Hash(header ‖ nonce) must begin with {difficulty} zero hex digit(s) — equivalent to {} leading zero bits. Expected average attempts: {}.",
-            bits,
-            if bits < 64 { (1u64 << bits).to_string() } else { "very large".to_string() }
-        ),
-        data: vec![
             format!("header = index ‖ timestamp ‖ data ‖ previous_hash ‖ nonce"),
             format!("target prefix: \"{}\"", target),
         ],
     });
 
     // Show first 3 failed attempts explicitly for educational value
-    let mut shown_fails = 0u32;
     let mut nonce: u64 = 0;
 
     loop {
@@ -72,7 +64,7 @@ pub fn mine(
             return MineResult { hash, nonce, steps };
         }
 
-        if shown_fails < 3 {
+        if steps.len() < 4 {
             let step_num = steps.len() as u32 + 1;
             steps.push(MineStep {
                 step_number: step_num,
@@ -83,7 +75,6 @@ pub fn mine(
                     format!("Hash:  {} ✗", hash),
                 ],
             });
-            shown_fails += 1;
         }
 
         nonce += 1;

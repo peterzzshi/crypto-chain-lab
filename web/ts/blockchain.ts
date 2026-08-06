@@ -1,7 +1,7 @@
 import { isWasmReady, blockchainCreateGenesis, blockchainMineBlock, blockchainValidate, blockchainTamper } from './wasm.ts';
 import { getElement } from './utils.ts';
 
-interface Block {
+type Block = {
     readonly index: number;
     readonly timestamp: number;
     readonly data: string;
@@ -12,18 +12,18 @@ interface Block {
     readonly hash_algo: string;
 }
 
-interface Chain {
+type Chain = {
     readonly blocks: Block[];
 }
 
-interface MineStep {
+type MineStep = {
     readonly step_number: number;
     readonly title: string;
     readonly description: string;
     readonly data: readonly string[];
 }
 
-interface MineBlockResult {
+type MineBlockResult = {
     readonly success: boolean;
     readonly error?: string;
     readonly chain?: Chain;
@@ -31,13 +31,13 @@ interface MineBlockResult {
     readonly attempts: number;
 }
 
-interface ChainResult {
+type ChainResult = {
     readonly success: boolean;
     readonly error?: string;
     readonly chain?: Chain;
 }
 
-interface ValidateResult {
+type ValidateResult = {
     readonly valid: boolean;
     readonly error?: string;
     readonly invalid_block_index?: number;
@@ -45,6 +45,7 @@ interface ValidateResult {
 }
 
 let chainState: Chain | null = null;
+let savedChains: ReadonlyArray<Chain> = [];
 
 const getHashAlgo = (): string =>
     (getElement('blockchain-algo') as HTMLSelectElement)?.value ?? 'sha256';
@@ -70,6 +71,18 @@ const renderBlockCard = (block: Block, isInvalid: boolean): string => {
     const algoLabel = block.hash_algo === 'keccak256' ? 'Keccak-256' : 'SHA-256';
     const border = isInvalid ? '#ef4444' : '#22c55e';
     const badge = isInvalid ? '<span style="color:#ef4444;float:right">✗ tampered</span>' : '<span style="color:#22c55e;float:right">✓ valid</span>';
+    const tamperSection = block.index > 0 ? `
+        <div class="bc-tamper-section">
+            <button class="bc-tamper-btn" data-index="${block.index}">Tamper this block</button>
+            <div class="bc-tamper-form" style="display:none;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-top:0.5rem;">
+                <input type="text" class="bc-tamper-input" value="${escHtml(block.data)}"
+                    style="flex:1;min-width:160px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#e5e7eb;padding:0.35rem 0.6rem;font-size:0.875rem;">
+                <button class="bc-tamper-confirm-btn" data-index="${block.index}"
+                    style="padding:0.35rem 0.9rem;background:#ef4444;border:none;border-radius:6px;color:#fff;font-size:0.875rem;cursor:pointer;">Apply</button>
+                <button class="bc-tamper-cancel-btn"
+                    style="padding:0.35rem 0.9rem;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#9ca3af;font-size:0.875rem;cursor:pointer;">Cancel</button>
+            </div>
+        </div>` : '';
     return `
         <div class="bc-block" style="border-color:${border}">
             <div class="bc-block-header">
@@ -82,7 +95,7 @@ const renderBlockCard = (block: Block, isInvalid: boolean): string => {
             <div class="bc-field"><span class="bc-label">Timestamp</span><span class="bc-value mono">${fmtTimestamp(block.timestamp)}</span></div>
             <div class="bc-field"><span class="bc-label">Prev hash</span><span class="bc-value mono hash-text">${block.previous_hash}</span></div>
             <div class="bc-field bc-hash-row"><span class="bc-label">Hash</span><span class="bc-value mono hash-text" style="color:${isInvalid ? '#ef4444' : '#4ade80'}">${block.hash}</span></div>
-            ${block.index > 0 ? `<button class="bc-tamper-btn" data-index="${block.index}">Tamper this block</button>` : ''}
+            ${tamperSection}
         </div>
         ${block.index < 99 ? '<div class="bc-arrow">↓</div>' : ''}
     `;
@@ -106,6 +119,37 @@ const renderSteps = (steps: readonly MineStep[], attempts: number): string => {
     return `
         <div class="bc-steps-header">Mining steps — ${attempts.toLocaleString()} attempt(s)</div>
         ${stepsHtml}`;
+};
+
+const renderHistory = (): void => {
+    const el = getElement('blockchain-history');
+    if (!el) return;
+    if (savedChains.length === 0) {
+        el.innerHTML = '';
+        return;
+    }
+    const cards = savedChains.map((chain, i) => {
+        const genesis = chain.blocks[0];
+        const algo = genesis?.hash_algo === 'keccak256' ? 'Keccak-256' : 'SHA-256';
+        const diff = genesis?.difficulty ?? '?';
+        const count = chain.blocks.length;
+        const validation: ValidateResult = JSON.parse(blockchainValidate(JSON.stringify(chain)));
+        const badge = validation.valid
+            ? '<span style="color:#22c55e;font-weight:500">✓ valid</span>'
+            : '<span style="color:#ef4444;font-weight:500">✗ tampered</span>';
+        return `
+            <div style="display:flex;align-items:center;gap:1rem;padding:0.5rem 0.75rem;background:#111827;border:1px solid #1f2937;border-radius:8px;margin-bottom:0.4rem;font-size:0.8rem;flex-wrap:wrap;">
+                <span style="color:#9ca3af;white-space:nowrap;">Chain #${i + 1}</span>
+                <span style="color:#6b7280;">${count} block${count !== 1 ? 's' : ''}</span>
+                <span style="color:#6b7280;">D=${diff}</span>
+                <span style="color:#6b7280;">${algo}</span>
+                ${badge}
+            </div>`;
+    }).join('');
+    el.innerHTML = `
+        <div style="color:#6b7280;font-size:0.7rem;letter-spacing:0.07em;text-transform:uppercase;margin-bottom:0.5rem;">Previous chains</div>
+        ${cards}
+        <div style="border-top:1px solid #1f2937;margin:1rem 0 0.5rem;"></div>`;
 };
 
 const revalidateAndRender = (): void => {
@@ -142,8 +186,10 @@ export const startChain = (): void => {
         }
         // Extract mining steps from the genesis mine call by re-mining with steps endpoint
         // Genesis block returns a chain — show its block in the chain display
+        if (chainState !== null) savedChains = [...savedChains, chainState];
         chainState = result.chain;
         revalidateAndRender();
+        renderHistory();
         setMineSection(true);
         // Show genesis mine stats
         const genesisBlock = result.chain.blocks[0];
@@ -190,25 +236,37 @@ export const mineBlock = (): void => {
     }, 0);
 };
 
-export const tamperBlock = (blockIndex: number): void => {
+export const tamperBlock = (blockIndex: number, newData: string): void => {
     if (!isWasmReady() || !chainState) return;
-    const newData = prompt(`New data for block #${blockIndex}:`);
-    if (newData === null) return;
     const raw = blockchainTamper(JSON.stringify(chainState), blockIndex, newData);
     const result: ChainResult = JSON.parse(raw);
     if (result.success && result.chain) {
         chainState = result.chain;
         revalidateAndRender();
         const stepsEl = getElement('blockchain-steps');
-        if (stepsEl) stepsEl.innerHTML = `
-            <div class="step-card" style="border-left:3px solid #ef4444">
-                <div class="step-title"><span class="step-number">!</span>Block #${blockIndex} tampered</div>
-                <div class="step-description">Block data changed without re-mining. The hash no longer matches and the chain is now invalid. To fix it, you would need to re-mine every block from #${blockIndex} onward — this is why blockchains are tamper-evident.</div>
-            </div>`;
+        if (!stepsEl) return;
+        const validation: ValidateResult = JSON.parse(blockchainValidate(JSON.stringify(chainState)));
+        if (validation.valid) {
+            stepsEl.innerHTML = `
+                <div class="step-card" style="border-left:3px solid #4ade80">
+                    <div class="step-title"><span class="step-number">✓</span>Block #${blockIndex} restored</div>
+                    <div class="step-description">The data matches the stored hash — the chain is valid again.</div>
+                </div>`;
+        } else {
+            stepsEl.innerHTML = `
+                <div class="step-card" style="border-left:3px solid #ef4444">
+                    <div class="step-title"><span class="step-number">!</span>Block #${blockIndex} tampered</div>
+                    <div class="step-description">Block data changed without re-mining. The hash no longer matches and the chain is now invalid. To fix it, you would need to re-mine every block from #${blockIndex} onward — this is why blockchains are tamper-evident.</div>
+                </div>`;
+        }
     }
 };
 
 export const resetChain = (): void => {
+    if (chainState !== null) {
+        savedChains = [...savedChains, chainState];
+        renderHistory();
+    }
     chainState = null;
     setMineSection(false);
     setStatus('Start a chain to begin', null);
@@ -223,11 +281,45 @@ export const initBlockchain = (): void => {
     const chainEl = getElement('blockchain-chain');
     if (chainEl) {
         chainEl.addEventListener('click', (e) => {
-            const btn = (e.target as HTMLElement).closest('.bc-tamper-btn') as HTMLElement | null;
-            if (btn) {
-                const idx = parseInt(btn.dataset.index ?? '-1', 10);
-                if (idx >= 0) tamperBlock(idx);
+            const target = e.target as HTMLElement;
+
+            const tamperBtn = target.closest('.bc-tamper-btn') as HTMLElement | null;
+            if (tamperBtn) {
+                const section = tamperBtn.closest('.bc-tamper-section') as HTMLElement | null;
+                tamperBtn.style.display = 'none';
+                const form = section?.querySelector('.bc-tamper-form') as HTMLElement | null;
+                if (form) form.style.display = 'flex';
+                return;
+            }
+
+            const cancelBtn = target.closest('.bc-tamper-cancel-btn') as HTMLElement | null;
+            if (cancelBtn) {
+                const section = cancelBtn.closest('.bc-tamper-section') as HTMLElement | null;
+                const btn = section?.querySelector('.bc-tamper-btn') as HTMLElement | null;
+                if (btn) btn.style.display = 'inline-block';
+                const form = cancelBtn.closest('.bc-tamper-form') as HTMLElement | null;
+                if (form) form.style.display = 'none';
+                return;
+            }
+
+            const confirmBtn = target.closest('.bc-tamper-confirm-btn') as HTMLElement | null;
+            if (confirmBtn) {
+                const idx = parseInt(confirmBtn.dataset.index ?? '-1', 10);
+                const input = confirmBtn.closest('.bc-tamper-form')?.querySelector('.bc-tamper-input') as HTMLInputElement | null;
+                if (idx >= 0 && input) tamperBlock(idx, input.value);
             }
         });
     }
+};
+
+export const exportChain = (): void => {
+    if (!chainState) return;
+    const json = JSON.stringify(chainState, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chain-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
 };
