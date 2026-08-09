@@ -211,8 +211,47 @@ export const startChain = (): void => {
     }
 };
 
+const miningWorker: Worker | null = (() => {
+    try {
+        return new Worker(new URL('../js/mining.worker.js', import.meta.url), { type: 'module' });
+    } catch {
+        return null;
+    }
+})();
+
+type MineCallback = (raw: string) => void;
+let pendingMine: MineCallback | null = null;
+
+const setMineButtonEnabled = (enabled: boolean): void => {
+    const btn = getElement('blockchain-mine-btn') as HTMLButtonElement | null;
+    if (btn) btn.disabled = !enabled;
+};
+
+const finishMine = (): void => {
+    pendingMine = null;
+    setMineButtonEnabled(true);
+};
+
+// Wire worker handlers once at module init, dispatch via pendingMine ref.
+if (miningWorker) {
+    miningWorker.onmessage = (e: MessageEvent<{ type: string; result?: string; message?: string }>): void => {
+        if (e.data.type === 'result' && pendingMine !== null && e.data.result !== undefined) {
+            const cb = pendingMine;
+            finishMine();
+            cb(e.data.result);
+        } else if (e.data.type === 'error') {
+            finishMine();
+            setStatus(e.data.message ?? 'Worker error', false);
+        }
+    };
+    miningWorker.onerror = (e: ErrorEvent): void => {
+        finishMine();
+        setStatus(e.message ?? 'Worker error', false);
+    };
+}
+
 export const mineBlock = (): void => {
-    if (!isWasmReady() || !chainState) return;
+    if (!isWasmReady() || !chainState || pendingMine !== null) return;
     const data = (getElement('blockchain-data') as HTMLTextAreaElement)?.value?.trim() ?? '';
     if (!data) {
         setStatus('Enter block data first', false);
@@ -220,15 +259,10 @@ export const mineBlock = (): void => {
     }
     const algo = getHashAlgo();
     const difficulty = getDifficulty();
-
-    setStatus('Mining…', null);
     const stepsEl = getElement('blockchain-steps');
-    if (stepsEl) stepsEl.innerHTML = '';
 
-    // Yield to UI before the synchronous WASM mining loop
-    setTimeout(() => {
+    const handleResult = (raw: string): void => {
         try {
-            const raw = blockchainMineBlock(JSON.stringify(chainState!), data, algo, difficulty);
             const result: MineBlockResult = JSON.parse(raw);
             if (!result.success || !result.chain) {
                 setStatus(result.error ?? 'Mining failed', false);
@@ -237,13 +271,33 @@ export const mineBlock = (): void => {
             chainState = result.chain;
             revalidateAndRender();
             if (stepsEl) stepsEl.innerHTML = renderSteps(result.steps, result.attempts);
-            // clear input
             const dataEl = getElement('blockchain-data') as HTMLTextAreaElement | null;
             if (dataEl) dataEl.value = '';
         } catch (e) {
             setStatus(e instanceof Error ? e.message : 'Error', false);
         }
-    }, 0);
+    };
+
+    setMineButtonEnabled(false);
+    setStatus('Mining…', null);
+    if (stepsEl) stepsEl.innerHTML = '';
+
+    if (miningWorker) {
+        pendingMine = handleResult;
+        miningWorker.postMessage({ type: 'mine', chainJson: JSON.stringify(chainState), data, algo, difficulty });
+    } else {
+        // Sync fallback: yield one frame so "Mining…" paints, then run on main thread.
+        pendingMine = handleResult;
+        setTimeout(() => {
+            const cb = pendingMine;
+            finishMine();
+            try {
+                cb!(blockchainMineBlock(JSON.stringify(chainState!), data, algo, difficulty));
+            } catch (e) {
+                setStatus(e instanceof Error ? e.message : 'Error', false);
+            }
+        }, 0);
+    }
 };
 
 export const tamperBlock = (blockIndex: number, newData: string): void => {
