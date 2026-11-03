@@ -65,6 +65,7 @@ pub fn point_add(p1: &CurvePoint, p2: &CurvePoint, params: &CurveParams) -> Curv
     match (p1, p2) {
         (CurvePoint::Infinity, _) => p2.clone(),
         (_, CurvePoint::Infinity) => p1.clone(),
+        // same x means P == Q (double) or P == -Q (inverse → infinity)
         (CurvePoint::Finite(a), CurvePoint::Finite(b)) if a.x == b.x => {
             if a.y == b.y {
                 point_double(a, params)

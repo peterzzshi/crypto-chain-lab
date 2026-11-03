@@ -4,6 +4,8 @@ use super::types::MineStep;
 pub struct MineResult {
     pub hash: String,
     pub nonce: u64,
+    /// True if the nonce loop was capped before finding a valid hash.
+    pub capped: bool,
     pub steps: Vec<MineStep>,
 }
 
@@ -35,7 +37,7 @@ pub fn mine(
             format!("Previous Hash: {}", previous_hash),
             format!("Algorithm:     {}", hash_algo),
             format!("Difficulty:    {} (target prefix: \"{}\")", difficulty, target),
-            format!("header = index ‖ timestamp ‖ data ‖ previous_hash ‖ nonce"),
+            "header = index ‖ timestamp ‖ data ‖ previous_hash ‖ nonce".to_string(),
             format!("target prefix: \"{}\"", target),
         ],
     });
@@ -61,7 +63,7 @@ pub fn mine(
                     format!("header: {}{}{}{}{}", index, timestamp, data, previous_hash, nonce),
                 ],
             });
-            return MineResult { hash, nonce, steps };
+            return MineResult { hash, nonce, capped: false, steps };
         }
 
         if steps.len() < 4 {
@@ -80,7 +82,6 @@ pub fn mine(
         nonce += 1;
         // Cap at 2M to stay responsive in WASM
         if nonce > 2_000_000 {
-            let fallback = hash_block_header(index, timestamp, data, previous_hash, nonce, hash_algo);
             let step_num = steps.len() as u32 + 1;
             steps.push(MineStep {
                 step_number: step_num,
@@ -88,7 +89,9 @@ pub fn mine(
                 description: "Exceeded 2,000,000 attempts. Lower the difficulty to mine this block.".to_string(),
                 data: vec![format!("Nonce reached: {}", nonce)],
             });
-            return MineResult { hash: fallback, nonce, steps };
+            // The hash at this nonce does not meet the difficulty target.
+            let invalid_hash = hash_block_header(index, timestamp, data, previous_hash, nonce, hash_algo);
+            return MineResult { hash: invalid_hash, nonce, capped: true, steps };
         }
     }
 }

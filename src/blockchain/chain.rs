@@ -50,8 +50,8 @@ pub fn mine_next_block(
         .chain(std::iter::once(block.clone()))
         .collect();
     MineBlockResult {
-        success: true,
-        error: None,
+        success: !result.capped,
+        error: if result.capped { Some("Mining cap reached — hash does not meet difficulty".to_string()) } else { None },
         block: Some(block),
         chain: Some(Chain { blocks }),
         steps: result.steps,

@@ -39,11 +39,11 @@ fn chi(state: &State) -> State {
 }
 
 pub fn keccak_f1600(state: &mut State) {
-    for r in 0..24 {
+    for &rc in &ROUND_CONSTANTS {
         theta(state);
         *state = rho_pi(state);
         *state = chi(state);
-        state[0] ^= ROUND_CONSTANTS[r];
+        state[0] ^= rc;
     }
 }
 
@@ -51,11 +51,11 @@ pub fn keccak_f1600(state: &mut State) {
 // Returns (final_state, snapshots) where snapshots[i] is after rounds (i*6+1)..(i*6+6).
 pub fn keccak_f1600_with_steps(state: &mut State) -> Vec<State> {
     let mut snapshots = Vec::with_capacity(4);
-    for r in 0..24 {
+    for (r, &rc) in ROUND_CONSTANTS.iter().enumerate() {
         theta(state);
         *state = rho_pi(state);
         *state = chi(state);
-        state[0] ^= ROUND_CONSTANTS[r];
+        state[0] ^= rc;
         if r == 5 || r == 11 || r == 17 || r == 23 {
             snapshots.push(*state);
         }

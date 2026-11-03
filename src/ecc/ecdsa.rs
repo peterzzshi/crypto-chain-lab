@@ -7,6 +7,7 @@ use super::types::{CurveParams, CurvePoint, EcdsaSignature};
 
 fn big_to_bytes32(n: &BigUint) -> [u8; 32] {
     let b = n.to_bytes_be();
+    debug_assert!(b.len() <= 32, "value exceeds 256 bits");
     let mut out = [0u8; 32];
     let len = b.len().min(32);
     out[32 - len..].copy_from_slice(&b[b.len() - len..]);
@@ -76,6 +77,8 @@ fn rfc6979_k(privkey: &BigUint, msg_hash: &[u8], n: &BigUint) -> BigUint {
     }
 }
 
+// Fermat's little theorem: a^(n-2) mod n — only correct when n is prime.
+// For ECDSA this is always the secp256k1 group order, which is prime.
 fn inv_mod_n(a: &BigUint, n: &BigUint) -> Option<BigUint> {
     if a.is_zero() {
         return None;

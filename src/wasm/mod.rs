@@ -323,7 +323,7 @@ fn run_rsa_demo_internal(
                 "block_size = \u{230a}(n.bits()\u{2212}1)/8\u{230b} = \u{230a}({}\u{2212}1)/8\u{230b} = {} byte(s)/block. Each block m\u{1d62} < n satisfies RSA\u{2019}s m < n constraint.",
                 n.bits(), block_size
             ),
-            formula: format!("\"{}\" \u{2192} {} block(s)", text, (text.len() + block_size - 1) / block_size),
+            formula: format!("\"{}\" \u{2192} {} block(s)", text, text.len().div_ceil(block_size)),
             result: format!("{} byte(s)/block", block_size),
         });
 
@@ -831,7 +831,7 @@ fn run_ecc_weierstrass_internal(
 
     steps.push(EccStep {
         step_number: 1,
-        title: format!("Short Weierstrass Curve E(\u{1d53d}\u{209a})"),
+        title: "Short Weierstrass Curve E(\u{1d53d}\u{209a})".to_string(),
         description: format!(
             "E: y\u{00b2} \u{2261} x\u{00b3} + ax + b (mod p), p = {}, a = {}, b = {}. Group order n = {} (computed by point enumeration).",
             p, a, b, n

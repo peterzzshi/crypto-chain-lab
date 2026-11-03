@@ -11,7 +11,7 @@ fn pad(message: &[u8]) -> Vec<u8> {
     let mut padded = message.to_vec();
     // Keccak-256 (original, not NIST SHA3): domain separation byte 0x01
     padded.push(0x01);
-    while padded.len() % RATE != 0 {
+    while !padded.len().is_multiple_of(RATE) {
         padded.push(0x00);
     }
     *padded.last_mut().unwrap() |= 0x80;

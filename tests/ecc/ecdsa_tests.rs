@@ -88,8 +88,7 @@ fn mutated_signature_s_fails() {
 #[test]
 fn cross_check_against_k256_crate() {
     use k256::{
-        ecdsa::{SigningKey, VerifyingKey, signature::Signer, signature::Verifier},
-        elliptic_curve::ScalarPrimitive,
+        ecdsa::{SigningKey, VerifyingKey},
     };
     let params = secp256k1();
     let kp = keypair_from_hex(TEST_KEY, &params).unwrap();

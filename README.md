@@ -1,6 +1,6 @@
 # Crypto Chain Lab
 
-Implementing cryptographic primitives **from scratch** in Rust and exposes them as interactive WebAssembly demos — including a fully working Proof-of-Work blockchain built on top of those primitives.
+Implementing cryptographic primitives **from scratch** in Rust and exposing them as interactive WebAssembly demos — including a fully working Proof-of-Work blockchain built on top of those primitives.
 
 ## 🎯 What's inside
 
@@ -14,6 +14,22 @@ Implementing cryptographic primitives **from scratch** in Rust and exposes them 
 | **ECDSA** | RFC 6979 deterministic signing + verification on secp256k1 |
 | **AES-128** | Key schedule, SubBytes/ShiftRows/MixColumns/AddRoundKey per round, decryption verification |
 | **Blockchain (PoW)** | Genesis + mining with SHA-256 or Keccak-256, Merkle root, chain validation, tamper detection |
+
+## 🧭 Scope and roadmap
+
+This repository currently covers the foundational cryptography described above. The
+portfolio plan calls for the following extensions, which are not implemented yet:
+
+| Planned extension | Intended milestone | Current status |
+|-------------------|--------------------|----------------|
+| Schnorr signatures (BIP-340) | Add signing and verification over secp256k1, with test vectors and a WASM demo | Not started |
+| BLS signatures | Add pairing-based signing and aggregation, with explicit curve and trust-model documentation | Not started |
+| Threshold signing / MPC | Add Shamir sharing and a 2-of-3 signing flow, including share-loss and invalid-share cases | Not started |
+| ZK attestation | Add an educational age/balance attestation and document the proving, verification, and privacy assumptions | Not started |
+
+These planned features are deliberately tracked separately from the implemented
+feature list. The cryptographic code is educational and should not be used for
+production key management or encryption.
 
 ## 🚀 Quick start
 

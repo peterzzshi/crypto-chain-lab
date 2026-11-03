@@ -19,7 +19,7 @@ pub fn text_to_blocks(text: &str, n: &BigUint) -> Vec<BigUint> {
     }
     text.as_bytes()
         .chunks(block_size)
-        .map(|chunk| BigUint::from_bytes_be(chunk))
+        .map(BigUint::from_bytes_be)
         .collect()
 }
 
