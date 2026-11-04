@@ -491,3 +491,212 @@ export const buildAes128ResultsHtml = (result: Aes128DemoResult): string => {
 
 export const renderAes128Results = (container: HTMLElement, result: Aes128DemoResult): void =>
     renderToContainer(container, buildAes128ResultsHtml(result));
+
+export type SchnorrSignResult = {
+    readonly success: boolean;
+    readonly error?: string;
+    readonly r?: string;
+    readonly s?: string;
+    readonly public_key_x?: string;
+    readonly message_hash?: string;
+}
+
+export const buildSchnorrSignResultsHtml = (result: SchnorrSignResult): string => {
+    if (!result.success || !result.r || !result.s) {
+        return buildErrorHtml(result.error ?? 'Schnorr signing failed');
+    }
+    return `
+        <div class="key-display">
+            ${renderKeyCard('✍️', 'Schnorr Signature (BIP-340)', [
+                `r = ${result.r}`,
+                `s = ${result.s}`,
+            ])}
+            ${renderKeyCard('🔑', 'Public Key (x-only)', [
+                `x = ${result.public_key_x ?? ''}`,
+            ])}
+            ${renderKeyCard('🔏', 'Message Hash (SHA-256)', [
+                result.message_hash ?? '',
+            ])}
+        </div>
+    `;
+};
+
+export const renderSchnorrSignResults = (container: HTMLElement, result: SchnorrSignResult): void =>
+    renderToContainer(container, buildSchnorrSignResultsHtml(result));
+
+export type SchnorrVerifyResult = {
+    readonly valid: boolean;
+    readonly error?: string;
+    readonly message: string;
+}
+
+export const buildSchnorrVerifyResultsHtml = (result: SchnorrVerifyResult): string => {
+    if (result.error) return buildErrorHtml(result.error);
+    const color = result.valid ? '#4ade80' : '#f87171';
+    const icon = result.valid ? '✅' : '❌';
+    const label = result.valid ? 'Signature is VALID' : 'Signature is INVALID';
+    return `
+        <div class="step-card" style="border-left:3px solid ${color}">
+            <div class="step-title" style="color:${color}">${icon} ${label}</div>
+            <div class="step-description">${result.message}</div>
+        </div>
+    `;
+};
+
+export const renderSchnorrVerifyResults = (container: HTMLElement, result: SchnorrVerifyResult): void =>
+    renderToContainer(container, buildSchnorrVerifyResultsHtml(result));
+
+export type BlsSignResult = {
+    readonly success: boolean;
+    readonly error?: string;
+    readonly pubkey?: string;
+    readonly signature?: string;
+    readonly message_hash?: string;
+}
+
+export type BlsVerifyResult = {
+    readonly valid: boolean;
+    readonly error?: string;
+    readonly message: string;
+}
+
+export type BlsSignerInfo = {
+    readonly index: number;
+    readonly pubkey: string;
+    readonly signature: string;
+}
+
+export type BlsAggregateDemoResult = {
+    readonly success: boolean;
+    readonly error?: string;
+    readonly signers?: BlsSignerInfo[];
+    readonly aggregate_sig?: string;
+    readonly aggregate_valid?: boolean;
+    readonly message_hash?: string;
+}
+
+export const buildBlsSignResultsHtml = (result: BlsSignResult): string => {
+    if (!result.success || !result.pubkey || !result.signature) {
+        return buildErrorHtml(result.error ?? 'BLS signing failed');
+    }
+    return `
+        <div class="key-display">
+            ${renderKeyCard('🔑', 'BLS12-381 Public Key (G1, compressed)', [
+                `pk = ${result.pubkey}`,
+            ])}
+            ${renderKeyCard('✍️', 'BLS Signature (G2, compressed)', [
+                `sig = ${result.signature}`,
+            ])}
+            ${renderKeyCard('🔏', 'Message Hash (SHA-256)', [
+                result.message_hash ?? '',
+            ])}
+        </div>
+    `;
+};
+
+export const renderBlsSignResults = (container: HTMLElement, result: BlsSignResult): void =>
+    renderToContainer(container, buildBlsSignResultsHtml(result));
+
+export const buildBlsVerifyResultsHtml = (result: BlsVerifyResult): string => {
+    if (result.error) return buildErrorHtml(result.error);
+    const color = result.valid ? '#4ade80' : '#f87171';
+    const icon = result.valid ? '✅' : '❌';
+    const label = result.valid ? 'Signature is VALID' : 'Signature is INVALID';
+    return `
+        <div class="step-card" style="border-left:3px solid ${color}">
+            <div class="step-title" style="color:${color}">${icon} ${label}</div>
+            <div class="step-description">${result.message}</div>
+        </div>
+    `;
+};
+
+export const renderBlsVerifyResults = (container: HTMLElement, result: BlsVerifyResult): void =>
+    renderToContainer(container, buildBlsVerifyResultsHtml(result));
+
+export const buildBlsAggregateResultsHtml = (result: BlsAggregateDemoResult): string => {
+    if (!result.success) {
+        return buildErrorHtml(result.error ?? 'BLS aggregation failed');
+    }
+    const signersHtml = (result.signers ?? [])
+        .map(s => renderKeyCard(`#${s.index}`, `Signer ${s.index} — BLS Key & Sig`, [
+            `pk = ${s.pubkey}`,
+            `sig = ${s.signature}`,
+        ]))
+        .join('');
+    const valid = result.aggregate_valid === true;
+    const color = valid ? '#4ade80' : '#f87171';
+    const icon = valid ? '✅' : '❌';
+    const label = valid ? 'Aggregate signature is VALID' : 'Aggregate signature is INVALID';
+    return `
+        <div class="key-display">
+            ${signersHtml}
+            ${renderKeyCard('🔗', 'Aggregate Signature (G2)', [
+                `agg_sig = ${result.aggregate_sig ?? ''}`,
+            ])}
+            <div class="step-card" style="border-left:3px solid ${color}">
+                <div class="step-title" style="color:${color}">${icon} ${label}</div>
+                <div class="step-description">Verified with one pairing call: e(∑pkᵢ, H(m)) = e(G1, agg_sig).</div>
+            </div>
+        </div>
+    `;
+};
+
+export const renderBlsAggregateResults = (container: HTMLElement, result: BlsAggregateDemoResult): void =>
+    renderToContainer(container, buildBlsAggregateResultsHtml(result));
+
+export type MpcShareInfo = {
+    readonly index: number;
+    readonly value: string;
+}
+
+export type MpcSplitDemoResult = {
+    readonly success: boolean;
+    readonly error?: string;
+    readonly shares?: readonly MpcShareInfo[];
+    readonly reconstructed_key_hex?: string;
+    readonly reconstruction_valid?: boolean;
+    readonly public_key_x?: string;
+    readonly public_key_y?: string;
+    readonly message_hash?: string;
+    readonly ecdsa_r?: string;
+    readonly ecdsa_s?: string;
+    readonly signature_valid?: boolean;
+}
+
+export const buildMpcShamirResultsHtml = (result: MpcSplitDemoResult): string => {
+    if (!result.success) return buildErrorHtml(result.error ?? 'MPC Shamir demo failed');
+    const sharesHtml = (result.shares ?? []).map(s =>
+        renderKeyCard(`Share ${s.index}`, `Shamir Share #${s.index}`, [`f(${s.index}) = ${s.value}`])
+    ).join('');
+    const recon = result.reconstruction_valid === true;
+    const reconColor = recon ? '#4ade80' : '#f87171';
+    const sigValid = result.signature_valid === true;
+    const sigColor = sigValid ? '#4ade80' : '#f87171';
+    return `
+        <div class="key-display">
+            ${sharesHtml}
+            ${renderKeyCard('🔑', 'Reconstructed Key (from shares 1 & 3)', [
+                `d = ${result.reconstructed_key_hex ?? ''}`,
+            ])}
+            <div class="step-card" style="border-left:3px solid ${reconColor}">
+                <div class="step-title" style="color:${reconColor}">${recon ? '✅' : '❌'} Reconstruction ${recon ? 'VALID' : 'INVALID'}</div>
+                <div class="step-description">Lagrange interpolation over 𝔽_n using any 2 of 3 shares recovers the original private key.</div>
+            </div>
+            ${renderKeyCard('📍', 'Public Key (secp256k1)', [
+                `Qx = ${result.public_key_x ?? ''}`,
+                `Qy = ${result.public_key_y ?? ''}`,
+            ])}
+            ${renderKeyCard('✍️', 'ECDSA Signature (RFC 6979)', [
+                `r = ${result.ecdsa_r ?? ''}`,
+                `s = ${result.ecdsa_s ?? ''}`,
+            ])}
+            <div class="step-card" style="border-left:3px solid ${sigColor}">
+                <div class="step-title" style="color:${sigColor}">${sigValid ? '✅' : '❌'} Signature ${sigValid ? 'VALID' : 'INVALID'}</div>
+                <div class="step-description">Message signed with reconstructed key and verified against derived public key.</div>
+            </div>
+        </div>
+    `;
+};
+
+export const renderMpcShamirResults = (container: HTMLElement, result: MpcSplitDemoResult): void =>
+    renderToContainer(container, buildMpcShamirResultsHtml(result));

@@ -25,6 +25,10 @@ use crate::sha256::math_utils::words_to_hex;
 use crate::sha256::preprocessing::preprocess_message;
 use crate::aes128::demo::run_aes128_demo;
 use crate::aes128::types::Aes128DemoResult;
+use crate::schnorr::schnorr::{sign_with_steps, verify as schnorr_verify_inner};
+use crate::schnorr::types::{SchnorrSignResult, SchnorrVerifyResult};
+use crate::mpc::mpc::{reconstruct as mpc_reconstruct, split as mpc_split, Share};
+use crate::mpc::types::{MpcShareInfo, MpcSplitDemoResult};
 
 fn to_json<T: Serialize>(value: &T) -> String {
     serde_json::to_string(value).unwrap_or_else(|_| "{}".to_string())
@@ -1108,4 +1112,420 @@ pub fn aes128_demo(plaintext_hex: &str, key_hex: &str) -> String {
     };
 
     to_json(&run_aes128_demo(&plaintext, &key))
+}
+
+// ============================================================================
+// Schnorr BIP-340 WASM Functions
+// ============================================================================
+
+#[wasm_bindgen]
+pub fn schnorr_sign(private_key_hex: &str, message: &str) -> String {
+    use crate::ecc::constants::secp256k1 as secp_params;
+    use sha2::{Digest, Sha256};
+
+    let clean = private_key_hex.trim_start_matches("0x").trim_start_matches("0X");
+    let privkey = match BigUint::parse_bytes(clean.as_bytes(), 16) {
+        Some(k) => k,
+        None => return to_json(&SchnorrSignResult {
+            success: false,
+            error: Some("Invalid hex private key".to_string()),
+            r: None, s: None, public_key_x: None, message_hash: None, steps: vec![],
+        }),
+    };
+
+    let params = secp_params();
+    if privkey.is_zero() || privkey >= params.n {
+        return to_json(&SchnorrSignResult {
+            success: false,
+            error: Some("Private key must be in [1, n-1]".to_string()),
+            r: None, s: None, public_key_x: None, message_hash: None, steps: vec![],
+        });
+    }
+
+    let msg_hash: [u8; 32] = Sha256::digest(message.as_bytes()).into();
+    let privkey_bytes: [u8; 32] = {
+        let b = privkey.to_bytes_be();
+        let mut arr = [0u8; 32];
+        let len = b.len().min(32);
+        arr[32 - len..].copy_from_slice(&b[b.len() - len..]);
+        arr
+    };
+    let aux_rand = [0u8; 32];
+
+    match sign_with_steps(&privkey_bytes, &msg_hash, &aux_rand, &params) {
+        None => to_json(&SchnorrSignResult {
+            success: false,
+            error: Some("Signing failed".to_string()),
+            r: None, s: None, public_key_x: None, message_hash: None, steps: vec![],
+        }),
+        Some((sig, steps)) => {
+            let pubkey_x = match crate::ecc::math_utils::scalar_mul(&privkey, &params.g, &params) {
+                crate::ecc::types::CurvePoint::Finite(p) => {
+                    format!("{:0>64}", hex::encode(p.x.to_bytes_be()))
+                },
+                crate::ecc::types::CurvePoint::Infinity => return to_json(&SchnorrSignResult {
+                    success: false,
+                    error: Some("Key generation failed".to_string()),
+                    r: None, s: None, public_key_x: None, message_hash: None, steps: vec![],
+                }),
+            };
+            to_json(&SchnorrSignResult {
+                success: true,
+                error: None,
+                r: Some(format!("{:0>64}", hex::encode(sig.r.to_bytes_be()))),
+                s: Some(format!("{:0>64}", hex::encode(sig.s.to_bytes_be()))),
+                public_key_x: Some(pubkey_x),
+                message_hash: Some(hex::encode(msg_hash)),
+                steps,
+            })
+        }
+    }
+}
+
+#[wasm_bindgen]
+pub fn schnorr_verify(pubkey_x_hex: &str, r_hex: &str, s_hex: &str, message: &str) -> String {
+    use crate::ecc::constants::secp256k1 as secp_params;
+    use sha2::{Digest, Sha256};
+
+    let parse_hex32 = |s: &str| -> Option<[u8; 32]> {
+        let c = s.trim_start_matches("0x").trim_start_matches("0X");
+        let n = BigUint::parse_bytes(c.as_bytes(), 16)?;
+        let b = n.to_bytes_be();
+        let mut arr = [0u8; 32];
+        let len = b.len().min(32);
+        arr[32 - len..].copy_from_slice(&b[b.len() - len..]);
+        Some(arr)
+    };
+
+    let (px_bytes, r_bytes, s_bytes) = match (
+        parse_hex32(pubkey_x_hex),
+        parse_hex32(r_hex),
+        parse_hex32(s_hex),
+    ) {
+        (Some(a), Some(b), Some(c)) => (a, b, c),
+        _ => return to_json(&SchnorrVerifyResult {
+            valid: false,
+            error: Some("Invalid hex input".to_string()),
+            message: "Failed to parse inputs".to_string(),
+        }),
+    };
+
+    let msg_hash: [u8; 32] = Sha256::digest(message.as_bytes()).into();
+    let params = secp_params();
+    let valid = schnorr_verify_inner(&px_bytes, &r_bytes, &s_bytes, &msg_hash, &params);
+
+    to_json(&SchnorrVerifyResult {
+        valid,
+        error: None,
+        message: if valid {
+            "Signature is valid — the message was signed by the owner of this Schnorr public key.".to_string()
+        } else {
+            "Signature is invalid — message or public key does not match.".to_string()
+        },
+    })
+}
+
+// ============================================================================
+// BLS12-381 WASM Functions
+// ============================================================================
+
+use crate::bls::bls::{
+    aggregate_signatures as bls_aggregate, sign as bls_sign_inner,
+    verify as bls_verify_inner, verify_aggregate as bls_verify_aggregate_inner,
+};
+use crate::bls::types::{BlsAggregateDemoResult, BlsSignResult, BlsSignerInfo, BlsVerifyResult};
+
+fn parse_hex_privkey_bls(s: &str) -> Option<[u8; 32]> {
+    let clean = s.trim_start_matches("0x").trim_start_matches("0X");
+    let n = BigUint::parse_bytes(clean.as_bytes(), 16)?;
+    let b = n.to_bytes_be();
+    let mut arr = [0u8; 32];
+    let len = b.len().min(32);
+    arr[32 - len..].copy_from_slice(&b[b.len() - len..]);
+    Some(arr)
+}
+
+#[wasm_bindgen]
+pub fn bls_sign(private_key_hex: &str, message: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let privkey = match parse_hex_privkey_bls(private_key_hex) {
+        Some(k) => k,
+        None => return to_json(&BlsSignResult {
+            success: false,
+            error: Some("Invalid hex private key".to_string()),
+            pubkey: None, signature: None, message_hash: None,
+        }),
+    };
+    let msg_hash: Vec<u8> = Sha256::digest(message.as_bytes()).to_vec();
+    match bls_sign_inner(&privkey, &msg_hash) {
+        None => to_json(&BlsSignResult {
+            success: false,
+            error: Some("Signing failed — private key must be non-zero".to_string()),
+            pubkey: None, signature: None, message_hash: None,
+        }),
+        Some((pk, sig)) => to_json(&BlsSignResult {
+            success: true,
+            error: None,
+            pubkey: Some(hex::encode(pk)),
+            signature: Some(hex::encode(sig)),
+            message_hash: Some(hex::encode(&msg_hash)),
+        }),
+    }
+}
+
+#[wasm_bindgen]
+pub fn bls_verify(pubkey_hex: &str, sig_hex: &str, message: &str) -> String {
+    use sha2::{Digest, Sha256};
+
+    let parse48 = |s: &str| -> Option<[u8; 48]> {
+        let b = hex::decode(s.trim_start_matches("0x")).ok()?;
+        b.try_into().ok()
+    };
+    let parse96 = |s: &str| -> Option<[u8; 96]> {
+        let b = hex::decode(s.trim_start_matches("0x")).ok()?;
+        b.try_into().ok()
+    };
+
+    let pk = match parse48(pubkey_hex) {
+        Some(b) => b,
+        None => return to_json(&BlsVerifyResult {
+            valid: false, error: Some("Public key must be 48 bytes (96 hex chars)".to_string()),
+            message: "Invalid input".to_string(),
+        }),
+    };
+    let sig = match parse96(sig_hex) {
+        Some(b) => b,
+        None => return to_json(&BlsVerifyResult {
+            valid: false, error: Some("Signature must be 96 bytes (192 hex chars)".to_string()),
+            message: "Invalid input".to_string(),
+        }),
+    };
+
+    let msg_hash: Vec<u8> = Sha256::digest(message.as_bytes()).to_vec();
+    let valid = bls_verify_inner(&pk, &sig, &msg_hash);
+    to_json(&BlsVerifyResult {
+        valid,
+        error: None,
+        message: if valid {
+            "Signature is valid — verified with BLS12-381 pairing e(pk, H(m)) = e(G1, sig).".to_string()
+        } else {
+            "Signature is invalid — pairing check failed.".to_string()
+        },
+    })
+}
+
+/// Sign the same message with 3 keys derived from the given seed key hex,
+/// aggregate the signatures, and verify in a single pairing call.
+#[wasm_bindgen]
+pub fn bls_aggregate_demo(seed_key_hex: &str, message: &str) -> String {
+    use sha2::{Digest, Sha256};
+
+    let seed = match parse_hex_privkey_bls(seed_key_hex) {
+        Some(k) => k,
+        None => return to_json(&BlsAggregateDemoResult {
+            success: false,
+            error: Some("Invalid hex private key".to_string()),
+            signers: None, aggregate_sig: None, aggregate_valid: None, message_hash: None,
+        }),
+    };
+    if seed == [0u8; 32] {
+        return to_json(&BlsAggregateDemoResult {
+            success: false,
+            error: Some("Private key must be non-zero".to_string()),
+            signers: None, aggregate_sig: None, aggregate_valid: None, message_hash: None,
+        });
+    }
+
+    let msg_hash: Vec<u8> = Sha256::digest(message.as_bytes()).to_vec();
+
+    // Derive 3 keys: seed XOR index in last byte
+    let mut keys = [[0u8; 32]; 3];
+    for (i, k) in keys.iter_mut().enumerate() {
+        *k = seed;
+        k[31] ^= (i as u8) + 1;
+        if k == &[0u8; 32] {
+            k[30] ^= 0xff;
+        }
+    }
+
+    let mut pks: Vec<[u8; 48]> = Vec::new();
+    let mut sigs: Vec<[u8; 96]> = Vec::new();
+    let mut signer_info: Vec<BlsSignerInfo> = Vec::new();
+
+    for (i, key) in keys.iter().enumerate() {
+        match bls_sign_inner(key, &msg_hash) {
+            None => return to_json(&BlsAggregateDemoResult {
+                success: false,
+                error: Some(format!("Signing failed for signer {}", i + 1)),
+                signers: None, aggregate_sig: None, aggregate_valid: None, message_hash: None,
+            }),
+            Some((pk, sig)) => {
+                signer_info.push(BlsSignerInfo {
+                    index: (i + 1) as u8,
+                    pubkey: hex::encode(pk),
+                    signature: hex::encode(sig),
+                });
+                pks.push(pk);
+                sigs.push(sig);
+            }
+        }
+    }
+
+    let agg_sig = match bls_aggregate(&sigs) {
+        Some(s) => s,
+        None => return to_json(&BlsAggregateDemoResult {
+            success: false,
+            error: Some("Aggregation failed".to_string()),
+            signers: None, aggregate_sig: None, aggregate_valid: None, message_hash: None,
+        }),
+    };
+
+    let valid = bls_verify_aggregate_inner(&pks, &msg_hash, &agg_sig);
+
+    to_json(&BlsAggregateDemoResult {
+        success: true,
+        error: None,
+        signers: Some(signer_info),
+        aggregate_sig: Some(hex::encode(agg_sig)),
+        aggregate_valid: Some(valid),
+        message_hash: Some(hex::encode(&msg_hash)),
+    })
+}
+
+// ============================================================================
+// MPC / Shamir 2-of-3 Threshold Signing
+// ============================================================================
+
+fn fmt_bigint_hex64(n: &BigUint) -> String {
+    format!("{:0>64}", hex::encode(n.to_bytes_be()))
+}
+
+#[wasm_bindgen]
+pub fn mpc_shamir_demo(private_key_hex: &str, message: &str) -> String {
+    use crate::ecc::constants::secp256k1 as secp_params;
+    use crate::ecc::ecdsa::{sign as ecdsa_sign_inner, verify as ecdsa_verify_inner};
+    use crate::ecc::key_generation::keypair_from_bigint;
+    use crate::ecc::types::CurvePoint;
+    use sha2::{Digest, Sha256};
+    use num_traits::Zero;
+
+    let clean = private_key_hex.trim_start_matches("0x").trim_start_matches("0X");
+    let privkey = match BigUint::parse_bytes(clean.as_bytes(), 16) {
+        Some(k) => k,
+        None => return to_json(&MpcSplitDemoResult {
+            success: false,
+            error: Some("Invalid hex private key".to_string()),
+            shares: None, reconstructed_key_hex: None, reconstruction_valid: None,
+            public_key_x: None, public_key_y: None,
+            message_hash: None, ecdsa_r: None, ecdsa_s: None, signature_valid: None,
+        }),
+    };
+
+    let params = secp_params();
+    let n = &params.n;
+    if privkey.is_zero() || privkey >= *n {
+        return to_json(&MpcSplitDemoResult {
+            success: false,
+            error: Some("Private key must be in [1, n-1]".to_string()),
+            shares: None, reconstructed_key_hex: None, reconstruction_valid: None,
+            public_key_x: None, public_key_y: None,
+            message_hash: None, ecdsa_r: None, ecdsa_s: None, signature_valid: None,
+        });
+    }
+
+    // Split into 3 shares, threshold 2
+    let shares = match mpc_split(&privkey, 2, 3, n) {
+        Some(s) => s,
+        None => return to_json(&MpcSplitDemoResult {
+            success: false,
+            error: Some("Splitting failed".to_string()),
+            shares: None, reconstructed_key_hex: None, reconstruction_valid: None,
+            public_key_x: None, public_key_y: None,
+            message_hash: None, ecdsa_r: None, ecdsa_s: None, signature_valid: None,
+        }),
+    };
+
+    let share_info: Vec<MpcShareInfo> = shares.iter().map(|s| MpcShareInfo {
+        index: s.x.to_u32_digits().first().copied().unwrap_or(0) as u8,
+        value: fmt_bigint_hex64(&s.y),
+    }).collect();
+
+    // Reconstruct from shares 1 and 3 (demonstrate any-two suffices)
+    let subset = vec![
+        Share { x: shares[0].x.clone(), y: shares[0].y.clone() },
+        Share { x: shares[2].x.clone(), y: shares[2].y.clone() },
+    ];
+    let recovered = match mpc_reconstruct(&subset, n) {
+        Some(k) => k,
+        None => return to_json(&MpcSplitDemoResult {
+            success: false,
+            error: Some("Reconstruction failed".to_string()),
+            shares: Some(share_info), reconstructed_key_hex: None, reconstruction_valid: None,
+            public_key_x: None, public_key_y: None,
+            message_hash: None, ecdsa_r: None, ecdsa_s: None, signature_valid: None,
+        }),
+    };
+
+    let s = &privkey % n;
+    let reconstruction_valid = recovered == s;
+    let recovered_hex = fmt_bigint_hex64(&recovered);
+
+    // Derive public key from recovered secret
+    let kp = match keypair_from_bigint(recovered.clone(), &params) {
+        Ok(k) => k,
+        Err(e) => return to_json(&MpcSplitDemoResult {
+            success: false,
+            error: Some(e),
+            shares: Some(share_info), reconstructed_key_hex: Some(recovered_hex),
+            reconstruction_valid: Some(reconstruction_valid),
+            public_key_x: None, public_key_y: None,
+            message_hash: None, ecdsa_r: None, ecdsa_s: None, signature_valid: None,
+        }),
+    };
+
+    let (px, py) = match &kp.public_key {
+        CurvePoint::Finite(p) => (
+            fmt_bigint_hex64(&p.x),
+            fmt_bigint_hex64(&p.y),
+        ),
+        _ => return to_json(&MpcSplitDemoResult {
+            success: false,
+            error: Some("Public key derivation failed".to_string()),
+            shares: Some(share_info), reconstructed_key_hex: Some(recovered_hex),
+            reconstruction_valid: Some(reconstruction_valid),
+            public_key_x: None, public_key_y: None,
+            message_hash: None, ecdsa_r: None, ecdsa_s: None, signature_valid: None,
+        }),
+    };
+
+    // Sign the message with the reconstructed key
+    let msg_hash: [u8; 32] = Sha256::digest(message.as_bytes()).into();
+    let sig = match ecdsa_sign_inner(&msg_hash, &recovered, &params) {
+        Some(s) => s,
+        None => return to_json(&MpcSplitDemoResult {
+            success: false,
+            error: Some("Signing failed".to_string()),
+            shares: Some(share_info), reconstructed_key_hex: Some(recovered_hex),
+            reconstruction_valid: Some(reconstruction_valid),
+            public_key_x: Some(px), public_key_y: Some(py),
+            message_hash: Some(hex::encode(msg_hash)),
+            ecdsa_r: None, ecdsa_s: None, signature_valid: None,
+        }),
+    };
+
+    let sig_valid = ecdsa_verify_inner(&msg_hash, &sig, &kp.public_key, &params);
+
+    to_json(&MpcSplitDemoResult {
+        success: true,
+        error: None,
+        shares: Some(share_info),
+        reconstructed_key_hex: Some(recovered_hex),
+        reconstruction_valid: Some(reconstruction_valid),
+        public_key_x: Some(px),
+        public_key_y: Some(py),
+        message_hash: Some(hex::encode(msg_hash)),
+        ecdsa_r: Some(fmt_bigint_hex64(&sig.r)),
+        ecdsa_s: Some(fmt_bigint_hex64(&sig.s)),
+        signature_valid: Some(sig_valid),
+    })
 }

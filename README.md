@@ -4,32 +4,29 @@ Implementing cryptographic primitives **from scratch** in Rust and exposing them
 
 ## 🎯 What's inside
 
-| Primitive | What it shows |
-|-----------|--------------|
-| **RSA** | Key generation, modular exponentiation, encrypt/decrypt |
-| **SHA-256** | Message padding, compression rounds, step-by-step state |
-| **Keccak-256** | Sponge construction, Keccak-f[1600] permutation |
-| **ECC Weierstrass** | Point addition, scalar multiplication on generic curves |
-| **secp256k1** | Bitcoin's curve — public key derivation from a private key |
-| **ECDSA** | RFC 6979 deterministic signing + verification on secp256k1 |
-| **AES-128** | Key schedule, SubBytes/ShiftRows/MixColumns/AddRoundKey per round, decryption verification |
+| Primitive            | What it shows                                                                                |
+|----------------------|----------------------------------------------------------------------------------------------|
+| **RSA**              | Key generation, modular exponentiation, encrypt/decrypt                                      |
+| **SHA-256**          | Message padding, compression rounds, step-by-step state                                      |
+| **Keccak-256**       | Sponge construction, Keccak-f[1600] permutation                                              |
+| **ECC Weierstrass**  | Point addition, scalar multiplication on generic curves                                      |
+| **secp256k1**        | Bitcoin's curve — public key derivation from a private key                                   |
+| **ECDSA**            | RFC 6979 deterministic signing + verification on secp256k1                                   |
+| **Schnorr (BIP-340)**| Linear signature scheme `s = k + ex mod n` with tagged-hash nonce, batch verification        |
+| **BLS signatures**   | Pairing-based aggregate signatures on BLS12-381 — sign on G1, verify aggregates             |
+| **Shamir 2-of-3**    | Threshold signing via polynomial secret sharing over secp256k1 scalar field                  |
+| **AES-128**          | Key schedule, SubBytes/ShiftRows/MixColumns/AddRoundKey per round, decryption verification   |
 | **Blockchain (PoW)** | Genesis + mining with SHA-256 or Keccak-256, Merkle root, chain validation, tamper detection |
 
-## 🧭 Scope and roadmap
+## 🧭 Roadmap
 
-This repository currently covers the foundational cryptography described above. The
-portfolio plan calls for the following extensions, which are not implemented yet:
+The following extension is planned but requires a study phase before implementation:
 
-| Planned extension | Intended milestone | Current status |
-|-------------------|--------------------|----------------|
-| Schnorr signatures (BIP-340) | Add signing and verification over secp256k1, with test vectors and a WASM demo | Not started |
-| BLS signatures | Add pairing-based signing and aggregation, with explicit curve and trust-model documentation | Not started |
-| Threshold signing / MPC | Add Shamir sharing and a 2-of-3 signing flow, including share-loss and invalid-share cases | Not started |
-| ZK attestation | Add an educational age/balance attestation and document the proving, verification, and privacy assumptions | Not started |
+| Planned extension | Milestone                                                                                                  | Status      |
+|-------------------|------------------------------------------------------------------------------------------------------------|-------------|
+| ZK attestation    | Add an educational age/balance attestation and document the proving, verification, and privacy assumptions | Not started |
 
-These planned features are deliberately tracked separately from the implemented
-feature list. The cryptographic code is educational and should not be used for
-production key management or encryption.
+**Note:** The cryptographic code is educational and should not be used for production key management or encryption.
 
 ## 🚀 Quick start
 
@@ -37,15 +34,12 @@ production key management or encryption.
 
 **Live:** https://peterzzshi.github.io/crypto-chain-lab/
 
-Local development:
-
+**Local:**
 ```bash
-# 1. Build WASM + TypeScript
-trunk build          # uses Trunk.toml pre-build hook
-
-# 2. Serve
-python3 -m http.server 8080 --directory dist
+trunk build
+python3 -m http.server 8080 --directory web/dist
 ```
+Then open http://localhost:8080
 
 ### CLI demos
 
@@ -62,7 +56,10 @@ src/
 ├── rsa/           RSA from scratch
 ├── sha256/        SHA-256 from scratch
 ├── keccak256/     Keccak-256 from scratch
-├── ecc/           Weierstrass ECC + secp256k1
+├── ecc/           Weierstrass ECC + secp256k1 + ECDSA
+├── schnorr/       BIP-340 Schnorr signatures (tagged-hash nonce, batch verification)
+├── bls/           BLS12-381 pairing-based signatures (sign on G1, aggregate verify)
+├── mpc/           Shamir 2-of-3 threshold signing over secp256k1 scalar field
 ├── aes128/        AES-128 block cipher from scratch
 ├── blockchain/    PoW chain built on the primitives above
 │   ├── hash.rs    dispatcher → SHA-256 or Keccak-256
@@ -70,7 +67,7 @@ src/
 │   ├── merkle.rs  Merkle root over block hashes
 │   ├── chain.rs   genesis, mine_next_block, validate, tamper
 │   └── types.rs   Block, Chain, MineBlockResult, ValidateResult
-└── wasm/          wasm-bindgen exports
+└── wasm/          wasm-bindgen exports (JSON serialization boundary)
 web/ts/
 ├── app.ts             entry point, tab/select routing
 ├── blockchain.ts      stateful blockchain UI
@@ -79,10 +76,13 @@ web/ts/
 ├── mining.worker.ts   Web Worker: off-thread PoW mining
 └── ui.ts              pure HTML builders
 tests/
-├── rsa/           RSA unit + integration tests
-├── ecc/           ECC unit tests
-├── aes128_tests.rs  AES-128 known-answer + round-trip tests
-└── blockchain/    blockchain integration tests (24 tests)
+├── rsa/                RSA unit + integration tests
+├── ecc/                ECC unit tests
+├── schnorr_tests.rs    Schnorr BIP-340 test vectors + signing/verification
+├── bls_tests.rs        BLS sign/verify/aggregate (9 tests)
+├── mpc_tests.rs        Shamir split/reconstruct edge cases (9 tests)
+├── aes128_tests.rs     AES-128 known-answer + round-trip tests
+└── blockchain/         blockchain integration tests (24 tests)
 ```
 
 ## 🏗️ Architecture
@@ -98,15 +98,6 @@ Browser  ←→  TypeScript UI  ←→  WASM (Rust)  ←→  Primitives
 - **Functional style**: pure calculation functions, side effects separated
 - **Mining runs off the main thread**: `mining.worker.ts` loads its own WASM instance and runs the nonce search in a Web Worker, so the UI stays responsive during proof-of-work; a synchronous fallback runs inline if Workers are unavailable
 
-## 🧪 Tests
-
-```bash
-cargo test                           # all suites
-cargo test --test blockchain_tests   # PoW chain (24 tests)
-cargo test --test rsa_tests          # RSA
-cargo test --test ecc_tests          # ECC / secp256k1
-cargo test --test aes128_tests       # AES-128
-```
 
 ## 📝 License
 

@@ -1,4 +1,4 @@
-import { initWasm, runRsaDemo, runSha256Demo, runKeccak256Demo, runWeierstrassDemo, runSecp256k1Demo, runEcdsaSignDemo, runEcdsaVerifyDemo, runAes128Demo } from './demos.ts';
+import { initWasm, runRsaDemo, runSha256Demo, runKeccak256Demo, runWeierstrassDemo, runSecp256k1Demo, runEcdsaSignDemo, runEcdsaVerifyDemo, runAes128Demo, runSchnorrSignDemo, runSchnorrVerifyDemo, runBlsSignDemo, runBlsVerifyDemo, runBlsAggregateDemo, runMpcShamirDemo } from './demos.ts';
 import { initBlockchain, startChain, mineBlock, resetChain, exportChain } from './blockchain.ts';
 import { getElement, getElements, debounce } from './utils.ts';
 
@@ -114,6 +114,43 @@ const copySignatureToVerify = (): void => {
     set('ecdsa-verify-message', msgInput?.value ?? '');
 };
 
+const copySchnorrSignatureToVerify = (): void => {
+    const resultsDiv = getElement('schnorr-results');
+    if (!resultsDiv) return;
+    const keyValues = Array.from(resultsDiv.querySelectorAll('.key-value'));
+    const extract = (label: string): string => {
+        const el = keyValues.find(v => v.textContent?.trimStart().startsWith(`${label} =`));
+        return el?.textContent?.split('=').slice(1).join('=').trim() ?? '';
+    };
+    const set = (id: string, val: string): void => {
+        const el = getElement(id) as HTMLInputElement | null;
+        if (el) el.value = val;
+    };
+    set('schnorr-verify-pubkey-x', extract('x'));
+    set('schnorr-verify-r', extract('r'));
+    set('schnorr-verify-s', extract('s'));
+    const msgInput = getElement('schnorr-message') as HTMLInputElement | null;
+    set('schnorr-verify-message', msgInput?.value ?? '');
+};
+
+const copyBlsSignatureToVerify = (): void => {
+    const resultsDiv = getElement('bls-results');
+    if (!resultsDiv) return;
+    const keyValues = Array.from(resultsDiv.querySelectorAll('.key-value'));
+    const extract = (label: string): string => {
+        const el = keyValues.find(v => v.textContent?.trimStart().startsWith(`${label} =`));
+        return el?.textContent?.split('=').slice(1).join('=').trim() ?? '';
+    };
+    const set = (id: string, val: string): void => {
+        const el = getElement(id) as HTMLInputElement | null;
+        if (el) el.value = val;
+    };
+    set('bls-verify-pubkey', extract('pk'));
+    set('bls-verify-sig', extract('sig'));
+    const msgInput = getElement('bls-message') as HTMLInputElement | null;
+    set('bls-verify-message', msgInput?.value ?? '');
+};
+
 const init = async (): Promise<void> => {
     setupTabListeners();
     // Show RSA panel by default
@@ -132,6 +169,18 @@ const init = async (): Promise<void> => {
         copySignatureToVerify();
     });
     getElement('ecdsa-verify-btn')?.addEventListener('click', () => void runEcdsaVerifyDemo());
+    getElement('schnorr-sign-btn')?.addEventListener('click', async () => {
+        await runSchnorrSignDemo();
+        copySchnorrSignatureToVerify();
+    });
+    getElement('schnorr-verify-btn')?.addEventListener('click', () => void runSchnorrVerifyDemo());
+    getElement('bls-sign-btn')?.addEventListener('click', async () => {
+        await runBlsSignDemo();
+        copyBlsSignatureToVerify();
+    });
+    getElement('bls-verify-btn')?.addEventListener('click', () => void runBlsVerifyDemo());
+    getElement('bls-aggregate-btn')?.addEventListener('click', () => void runBlsAggregateDemo());
+    getElement('mpc-shamir-btn')?.addEventListener('click', () => void runMpcShamirDemo());
     // Pre-run all algorithm demos
     void runRsaDemo();
     void runSha256Demo();

@@ -19,6 +19,12 @@ type WasmModule = {
     readonly ecdsa_sign: (private_key_hex: string, message: string) => string;
     readonly ecdsa_verify: (pubkey_x: string, pubkey_y: string, r: string, s: string, message: string) => string;
     readonly aes128_demo: (plaintext_hex: string, key_hex: string) => string;
+    readonly schnorr_sign: (private_key_hex: string, message: string) => string;
+    readonly schnorr_verify: (pubkey_x_hex: string, r_hex: string, s_hex: string, message: string) => string;
+    readonly bls_sign: (private_key_hex: string, message: string) => string;
+    readonly bls_verify: (pubkey_hex: string, sig_hex: string, message: string) => string;
+    readonly bls_aggregate_demo: (seed_key_hex: string, message: string) => string;
+    readonly mpc_shamir_demo: (private_key_hex: string, message: string) => string;
 }
 
 type WasmState = {
@@ -84,6 +90,24 @@ export const ecdsaVerify = (pubkeyX: string, pubkeyY: string, r: string, s: stri
 
 export const aes128Demo = (plaintextHex: string, keyHex: string): string =>
     wasmState.get().aes128_demo(plaintextHex, keyHex);
+
+export const schnorrSign = (privateKeyHex: string, message: string): string =>
+    wasmState.get().schnorr_sign(privateKeyHex, message);
+
+export const schnorrVerify = (pubkeyXHex: string, rHex: string, sHex: string, message: string): string =>
+    wasmState.get().schnorr_verify(pubkeyXHex, rHex, sHex, message);
+
+export const blsSign = (privateKeyHex: string, message: string): string =>
+    wasmState.get().bls_sign(privateKeyHex, message);
+
+export const blsVerify = (pubkeyHex: string, sigHex: string, message: string): string =>
+    wasmState.get().bls_verify(pubkeyHex, sigHex, message);
+
+export const blsAggregateDemo = (seedKeyHex: string, message: string): string =>
+    wasmState.get().bls_aggregate_demo(seedKeyHex, message);
+
+export const mpcShamirDemo = (privateKeyHex: string, message: string): string =>
+    wasmState.get().mpc_shamir_demo(privateKeyHex, message);
 
 export const initWasm = async (): Promise<boolean> => {
     try {

@@ -23,7 +23,7 @@
                     <option value="sha256">SHA-256</option>
                     <option value="keccak256">Keccak-256</option>
                     <option value="weierstrass">ECC Weierstrass</option>
-                    <option value="secp256k1">secp256k1</option>
+                    <option value="secp256k1">secp256k1 (ECDSA, Schnorr, BLS, MPC)</option>
                     <option value="aes128">AES-128</option>
                 </select>
             </div>
@@ -239,6 +239,152 @@
                 </button>
 
                 <div id="ecdsa-verify-results" class="results" style="margin-top:1rem;"></div>
+            </div>
+
+            <!-- Schnorr BIP-340 Signing sub-section -->
+            <div style="margin-top:2rem;border-top:1px solid #1f2937;padding-top:1.5rem;">
+                <h3 style="margin-bottom:0.5rem;color:#e5e7eb;">Schnorr BIP-340 Message Signing</h3>
+                <p style="color:#888;font-size:0.9rem;margin-bottom:1rem;">
+                    Sign a message with the private key above using BIP-340 Schnorr signatures (Bitcoin Taproot).
+                    Uses a tagged-hash nonce and produces an x-only (r, s) signature with an even-y nonce point.
+                    The signature equation s = k + e·d is linear, unlike ECDSA's k⁻¹(z + r·d).
+                </p>
+                <div class="input-group">
+                    <div class="input-field" style="grid-column:1/-1;">
+                        <label for="schnorr-message">Message to sign</label>
+                        <input type="text" id="schnorr-message" placeholder="Hello, Schnorr!" value="Hello, Schnorr!">
+                    </div>
+                </div>
+                <button id="schnorr-sign-btn"
+                    style="margin-top:0.75rem;padding:0.6rem 1.5rem;background:linear-gradient(90deg,#7c3aed,#4f46e5);border:none;border-radius:8px;color:#fff;font-size:0.95rem;cursor:pointer;">
+                    Sign Message (Schnorr)
+                </button>
+                <div id="schnorr-results" class="results" style="margin-top:1rem;"></div>
+            </div>
+
+            <!-- Schnorr BIP-340 Verify sub-section -->
+            <div style="margin-top:2rem;border-top:1px solid #1f2937;padding-top:1.5rem;">
+                <h3 style="margin-bottom:0.5rem;color:#e5e7eb;">Schnorr BIP-340 Signature Verification</h3>
+                <p style="color:#888;font-size:0.9rem;margin-bottom:1rem;">
+                    Auto-populated after signing above. BIP-340 uses an x-only public key (32 bytes, no Y coordinate) —
+                    the verifier lifts X to the even-y curve point. Verify any secp256k1 Schnorr signature here.
+                </p>
+                <div class="input-group">
+                    <div class="input-field">
+                        <label for="schnorr-verify-pubkey-x">Public key X (x-only, hex)</label>
+                        <input type="text" id="schnorr-verify-pubkey-x" placeholder="79BE667EF9DCBBAC...">
+                    </div>
+                    <div class="input-field">
+                        <label for="schnorr-verify-r">r (hex)</label>
+                        <input type="text" id="schnorr-verify-r" placeholder="signature r (R.x)">
+                    </div>
+                    <div class="input-field">
+                        <label for="schnorr-verify-s">s (hex)</label>
+                        <input type="text" id="schnorr-verify-s" placeholder="signature s">
+                    </div>
+                    <div class="input-field" style="grid-column:1/-1;">
+                        <label for="schnorr-verify-message">Message</label>
+                        <input type="text" id="schnorr-verify-message" placeholder="Hello, Schnorr!">
+                    </div>
+                </div>
+                <button id="schnorr-verify-btn"
+                    style="margin-top:0.75rem;padding:0.6rem 1.5rem;background:linear-gradient(90deg,#0d9488,#0891b2);border:none;border-radius:8px;color:#fff;font-size:0.95rem;cursor:pointer;">
+                    Verify Signature (Schnorr)
+                </button>
+
+                <div id="schnorr-verify-results" class="results" style="margin-top:1rem;"></div>
+            </div>
+
+            <!-- BLS12-381 Sign sub-section -->
+            <div style="margin-top:2rem;border-top:1px solid #1f2937;padding-top:1.5rem;">
+                <h3 style="margin-bottom:0.5rem;color:#e5e7eb;">BLS12-381 Message Signing</h3>
+                <p style="color:#888;font-size:0.9rem;margin-bottom:1rem;">
+                    Sign a message with the private key above using BLS signatures (Boneh-Lynn-Shacham)
+                    over the BLS12-381 pairing curve. Public key is in G1 (48 bytes), signature in G2 (96 bytes).
+                </p>
+                <div class="input-group">
+                    <div class="input-field" style="grid-column:1/-1;">
+                        <label for="bls-message">Message to sign</label>
+                        <input type="text" id="bls-message" placeholder="Hello, BLS!" value="Hello, BLS!">
+                    </div>
+                </div>
+                <button id="bls-sign-btn"
+                    style="margin-top:0.75rem;padding:0.6rem 1.5rem;background:linear-gradient(90deg,#7c3aed,#6366f1);border:none;border-radius:8px;color:#fff;font-size:0.95rem;cursor:pointer;">
+                    Sign Message (BLS)
+                </button>
+                <div id="bls-results" class="results" style="margin-top:1rem;"></div>
+            </div>
+
+            <!-- BLS12-381 Verify sub-section -->
+            <div style="margin-top:2rem;border-top:1px solid #1f2937;padding-top:1.5rem;">
+                <h3 style="margin-bottom:0.5rem;color:#e5e7eb;">BLS12-381 Signature Verification</h3>
+                <p style="color:#888;font-size:0.9rem;margin-bottom:1rem;">
+                    Auto-populated after signing above. Verification checks the pairing
+                    e(pk, H(m)) = e(G1, sig). Verify any BLS12-381 signature here.
+                </p>
+                <div class="input-group">
+                    <div class="input-field" style="grid-column:1/-1;">
+                        <label for="bls-verify-pubkey">Public key (G1, 96 hex chars)</label>
+                        <input type="text" id="bls-verify-pubkey" placeholder="compressed pubkey (48 bytes)">
+                    </div>
+                    <div class="input-field" style="grid-column:1/-1;">
+                        <label for="bls-verify-sig">Signature (G2, 192 hex chars)</label>
+                        <input type="text" id="bls-verify-sig" placeholder="compressed signature (96 bytes)">
+                    </div>
+                    <div class="input-field" style="grid-column:1/-1;">
+                        <label for="bls-verify-message">Message</label>
+                        <input type="text" id="bls-verify-message" placeholder="Hello, BLS!">
+                    </div>
+                </div>
+                <button id="bls-verify-btn"
+                    style="margin-top:0.75rem;padding:0.6rem 1.5rem;background:linear-gradient(90deg,#7c3aed,#6366f1);border:none;border-radius:8px;color:#fff;font-size:0.95rem;cursor:pointer;">
+                    Verify Signature (BLS)
+                </button>
+
+                <div id="bls-verify-results" class="results" style="margin-top:1rem;"></div>
+            </div>
+
+            <!-- BLS12-381 Aggregate sub-section -->
+            <div style="margin-top:2rem;border-top:1px solid #1f2937;padding-top:1.5rem;">
+                <h3 style="margin-bottom:0.5rem;color:#e5e7eb;">BLS12-381 Aggregate Signatures</h3>
+                <p style="color:#888;font-size:0.9rem;margin-bottom:1rem;">
+                    Derives 3 keys from the seed above, signs the same message with each, aggregates the
+                    signatures into one, and verifies in a single pairing call
+                    e(∑pkᵢ, H(m)) = e(G1, agg_sig). Demonstrates BLS native non-interactive aggregation.
+                </p>
+                <div class="input-group">
+                    <div class="input-field" style="grid-column:1/-1;">
+                        <label for="bls-aggregate-message">Message (signed by all 3)</label>
+                        <input type="text" id="bls-aggregate-message" placeholder="Hello, BLS!" value="Hello, BLS!">
+                    </div>
+                </div>
+                <button id="bls-aggregate-btn"
+                    style="margin-top:0.75rem;padding:0.6rem 1.5rem;background:linear-gradient(90deg,#7c3aed,#6366f1);border:none;border-radius:8px;color:#fff;font-size:0.95rem;cursor:pointer;">
+                    Aggregate &amp; Verify (BLS)
+                </button>
+                <div id="bls-aggregate-results" class="results" style="margin-top:1rem;"></div>
+            </div>
+
+            <!-- MPC / Shamir 2-of-3 sub-section -->
+            <div style="margin-top:2rem;border-top:1px solid #1f2937;padding-top:1.5rem;">
+                <h3 style="margin-bottom:0.5rem;color:#e5e7eb;">Shamir 2-of-3 Threshold Signing</h3>
+                <p style="color:#888;font-size:0.9rem;margin-bottom:1rem;">
+                    Splits the private key into 3 shares using a degree-1 polynomial f(x) = d + a₁x mod n over the
+                    secp256k1 group order. Any 2 shares reconstruct d via Lagrange interpolation; 1 share reveals
+                    nothing. The demo reconstructs from shares 1 &amp; 3, derives the public key, and signs a message
+                    with ECDSA to confirm the recovered key is correct.
+                </p>
+                <div class="input-group">
+                    <div class="input-field" style="grid-column:1/-1;">
+                        <label for="mpc-message">Message to sign after reconstruction</label>
+                        <input type="text" id="mpc-message" placeholder="Hello, Shamir!" value="Hello, Shamir!">
+                    </div>
+                </div>
+                <button id="mpc-shamir-btn"
+                    style="margin-top:0.75rem;padding:0.6rem 1.5rem;background:linear-gradient(90deg,#065f46,#0d9488);border:none;border-radius:8px;color:#fff;font-size:0.95rem;cursor:pointer;">
+                    Split &amp; Reconstruct (Shamir 2-of-3)
+                </button>
+                <div id="mpc-results" class="results" style="margin-top:1rem;"></div>
             </div>
         </div>
 

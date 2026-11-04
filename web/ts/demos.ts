@@ -1,6 +1,6 @@
-import { initWasm as initWasmModule, isWasmReady, rsaDemoText, rsaDemoNumber, sha256DemoText, keccak256DemoText, eccDemoSecp256k1, eccDemoWeierstrass, ecdsaSign, ecdsaVerify, aes128Demo } from './wasm.ts';
-import { renderRsaResults, renderSha256Results, renderKeccak256Results, renderWeierstrassResults, renderSecp256k1Results, renderEcdsaSignResults, renderEcdsaVerifyResults, renderAes128Results, renderError, renderLoading } from './ui.ts';
-import type { RsaResult, Sha256Result, Keccak256Result, EccResult, EcdsaSignResult, EcdsaVerifyResult, Aes128DemoResult } from './ui.ts';
+import { initWasm as initWasmModule, isWasmReady, rsaDemoText, rsaDemoNumber, sha256DemoText, keccak256DemoText, eccDemoSecp256k1, eccDemoWeierstrass, ecdsaSign, ecdsaVerify, aes128Demo, schnorrSign, schnorrVerify, blsSign, blsVerify, blsAggregateDemo, mpcShamirDemo } from './wasm.ts';
+import { renderRsaResults, renderSha256Results, renderKeccak256Results, renderWeierstrassResults, renderSecp256k1Results, renderEcdsaSignResults, renderEcdsaVerifyResults, renderAes128Results, renderSchnorrSignResults, renderSchnorrVerifyResults, renderBlsSignResults, renderBlsVerifyResults, renderBlsAggregateResults, renderMpcShamirResults, renderError, renderLoading } from './ui.ts';
+import type { RsaResult, Sha256Result, Keccak256Result, EccResult, EcdsaSignResult, EcdsaVerifyResult, Aes128DemoResult, SchnorrSignResult, SchnorrVerifyResult, BlsSignResult, BlsVerifyResult, BlsAggregateDemoResult, MpcSplitDemoResult } from './ui.ts';
 import { getElement, getTrimmedValue, getValue, isNumericString, validateNonEmpty, parseResult } from './utils.ts';
 import type { ValidationResult, ParsedResult } from './utils.ts';
 
@@ -305,4 +305,197 @@ export const runAes128Demo = (): Promise<void> => runDemo<Aes128Inputs, Aes128De
     compute: ({ plaintextHex, keyHex }) => computeAes128(plaintextHex, keyHex),
     renderSuccess: renderAes128Results,
     loadingMessage: 'Encrypting...',
+});
+
+type SchnorrSignInputs = {
+    readonly key: string;
+    readonly message: string;
+    readonly resultsDiv: HTMLElement | null;
+}
+
+type SchnorrVerifyInputs = {
+    readonly pubkeyX: string;
+    readonly r: string;
+    readonly s: string;
+    readonly message: string;
+    readonly resultsDiv: HTMLElement | null;
+}
+
+const getSchnorrSignInputs = (): SchnorrSignInputs => ({
+    key: getTrimmedValue('secp256k1-key'),
+    message: getTrimmedValue('schnorr-message'),
+    resultsDiv: getElement('schnorr-results'),
+});
+
+const getSchnorrVerifyInputs = (): SchnorrVerifyInputs => ({
+    pubkeyX: getTrimmedValue('schnorr-verify-pubkey-x'),
+    r: getTrimmedValue('schnorr-verify-r'),
+    s: getTrimmedValue('schnorr-verify-s'),
+    message: getTrimmedValue('schnorr-verify-message'),
+    resultsDiv: getElement('schnorr-verify-results'),
+});
+
+const validateSchnorrSignInputs = ({ key, message }: SchnorrSignInputs): ValidationResult => {
+    const keyCheck = validateSecp256k1Inputs({ key, resultsDiv: null });
+    if (!keyCheck.valid) return keyCheck;
+    return validateNonEmpty(message, 'a message to sign');
+};
+
+const validateSchnorrVerifyInputs = ({ pubkeyX, r, s, message }: SchnorrVerifyInputs): ValidationResult => {
+    const fields: [string, string][] = [['Public key X', pubkeyX], ['r', r], ['s', s]];
+    const firstError = fields.reduce<ValidationResult | null>((err, [name, val]) => {
+        if (err) return err;
+        const ne = validateNonEmpty(val, name);
+        if (!ne.valid) return ne;
+        return isHex64(val) ? null : { valid: false, error: `${name} must be a hex string (up to 64 chars)` };
+    }, null);
+    if (firstError) return firstError;
+    return validateNonEmpty(message, 'a message');
+};
+
+const computeSchnorrSign = (key: string, message: string): ParsedResult<SchnorrSignResult> =>
+    parseResult<SchnorrSignResult>(schnorrSign(key, message));
+
+const computeSchnorrVerify = (pubkeyX: string, r: string, s: string, message: string): ParsedResult<SchnorrVerifyResult> =>
+    parseResult<SchnorrVerifyResult>(schnorrVerify(pubkeyX, r, s, message));
+
+export const runSchnorrSignDemo = (): Promise<void> => runDemo<SchnorrSignInputs, SchnorrSignResult>({
+    getInputs: getSchnorrSignInputs,
+    validate: validateSchnorrSignInputs,
+    compute: ({ key, message }) => computeSchnorrSign(key, message),
+    renderSuccess: renderSchnorrSignResults,
+    loadingMessage: 'Signing message (Schnorr)...',
+});
+
+export const runSchnorrVerifyDemo = (): Promise<void> => runDemo<SchnorrVerifyInputs, SchnorrVerifyResult>({
+    getInputs: getSchnorrVerifyInputs,
+    validate: validateSchnorrVerifyInputs,
+    compute: ({ pubkeyX, r, s, message }) => computeSchnorrVerify(pubkeyX, r, s, message),
+    renderSuccess: renderSchnorrVerifyResults,
+    loadingMessage: 'Verifying signature (Schnorr)...',
+});
+
+type BlsSignInputs = {
+    readonly key: string;
+    readonly message: string;
+    readonly resultsDiv: HTMLElement | null;
+}
+
+type BlsVerifyInputs = {
+    readonly pubkey: string;
+    readonly sig: string;
+    readonly message: string;
+    readonly resultsDiv: HTMLElement | null;
+}
+
+type BlsAggregateInputs = {
+    readonly key: string;
+    readonly message: string;
+    readonly resultsDiv: HTMLElement | null;
+}
+
+const getBlsSignInputs = (): BlsSignInputs => ({
+    key: getTrimmedValue('secp256k1-key'),
+    message: getTrimmedValue('bls-message'),
+    resultsDiv: getElement('bls-results'),
+});
+
+const getBlsVerifyInputs = (): BlsVerifyInputs => ({
+    pubkey: getTrimmedValue('bls-verify-pubkey'),
+    sig: getTrimmedValue('bls-verify-sig'),
+    message: getTrimmedValue('bls-verify-message'),
+    resultsDiv: getElement('bls-verify-results'),
+});
+
+const getBlsAggregateInputs = (): BlsAggregateInputs => ({
+    key: getTrimmedValue('secp256k1-key'),
+    message: getTrimmedValue('bls-aggregate-message'),
+    resultsDiv: getElement('bls-aggregate-results'),
+});
+
+const validateBlsSignInputs = ({ key, message }: BlsSignInputs): ValidationResult => {
+    const keyCheck = validateSecp256k1Inputs({ key, resultsDiv: null });
+    if (!keyCheck.valid) return keyCheck;
+    return validateNonEmpty(message, 'a message to sign');
+};
+
+const isHex96 = (v: string): boolean => /^(0x)?[0-9a-fA-F]{96,192}$/.test(v);
+const isHex48 = (v: string): boolean => /^(0x)?[0-9a-fA-F]{48,96}$/.test(v);
+
+const validateBlsVerifyInputs = ({ pubkey, sig, message }: BlsVerifyInputs): ValidationResult => {
+    const pubkeyNe = validateNonEmpty(pubkey, 'a public key');
+    if (!pubkeyNe.valid) return pubkeyNe;
+    if (!isHex48(pubkey)) return { valid: false, error: 'Public key must be 48 bytes (96 hex chars)' };
+    const sigNe = validateNonEmpty(sig, 'a signature');
+    if (!sigNe.valid) return sigNe;
+    if (!isHex96(sig)) return { valid: false, error: 'Signature must be 96 bytes (192 hex chars)' };
+    return validateNonEmpty(message, 'a message');
+};
+
+const validateBlsAggregateInputs = ({ key, message }: BlsAggregateInputs): ValidationResult => {
+    const keyCheck = validateSecp256k1Inputs({ key, resultsDiv: null });
+    if (!keyCheck.valid) return keyCheck;
+    return validateNonEmpty(message, 'a message to sign');
+};
+
+const computeBlsSign = (key: string, message: string): ParsedResult<BlsSignResult> =>
+    parseResult<BlsSignResult>(blsSign(key, message));
+
+const computeBlsVerify = (pubkey: string, sig: string, message: string): ParsedResult<BlsVerifyResult> =>
+    parseResult<BlsVerifyResult>(blsVerify(pubkey, sig, message));
+
+const computeBlsAggregate = (key: string, message: string): ParsedResult<BlsAggregateDemoResult> =>
+    parseResult<BlsAggregateDemoResult>(blsAggregateDemo(key, message));
+
+export const runBlsSignDemo = (): Promise<void> => runDemo<BlsSignInputs, BlsSignResult>({
+    getInputs: getBlsSignInputs,
+    validate: validateBlsSignInputs,
+    compute: ({ key, message }) => computeBlsSign(key, message),
+    renderSuccess: renderBlsSignResults,
+    loadingMessage: 'Signing message (BLS12-381)...',
+});
+
+export const runBlsVerifyDemo = (): Promise<void> => runDemo<BlsVerifyInputs, BlsVerifyResult>({
+    getInputs: getBlsVerifyInputs,
+    validate: validateBlsVerifyInputs,
+    compute: ({ pubkey, sig, message }) => computeBlsVerify(pubkey, sig, message),
+    renderSuccess: renderBlsVerifyResults,
+    loadingMessage: 'Verifying signature (BLS12-381)...',
+});
+
+export const runBlsAggregateDemo = (): Promise<void> => runDemo<BlsAggregateInputs, BlsAggregateDemoResult>({
+    getInputs: getBlsAggregateInputs,
+    validate: validateBlsAggregateInputs,
+    compute: ({ key, message }) => computeBlsAggregate(key, message),
+    renderSuccess: renderBlsAggregateResults,
+    loadingMessage: 'Aggregating BLS signatures...',
+});
+
+type MpcShamirInputs = {
+    readonly key: string;
+    readonly message: string;
+    readonly resultsDiv: HTMLElement | null;
+}
+
+const getMpcShamirInputs = (): MpcShamirInputs => ({
+    key: getTrimmedValue('secp256k1-key'),
+    message: getTrimmedValue('mpc-message'),
+    resultsDiv: getElement('mpc-results'),
+});
+
+const validateMpcShamirInputs = ({ key, message }: MpcShamirInputs): ValidationResult => {
+    const keyCheck = validateSecp256k1Inputs({ key, resultsDiv: null });
+    if (!keyCheck.valid) return keyCheck;
+    return validateNonEmpty(message, 'a message to sign');
+};
+
+const computeMpcShamir = (key: string, message: string): ParsedResult<MpcSplitDemoResult> =>
+    parseResult<MpcSplitDemoResult>(mpcShamirDemo(key, message));
+
+export const runMpcShamirDemo = (): Promise<void> => runDemo<MpcShamirInputs, MpcSplitDemoResult>({
+    getInputs: getMpcShamirInputs,
+    validate: validateMpcShamirInputs,
+    compute: ({ key, message }) => computeMpcShamir(key, message),
+    renderSuccess: renderMpcShamirResults,
+    loadingMessage: 'Splitting key & threshold-signing (Shamir 2-of-3)...',
 });

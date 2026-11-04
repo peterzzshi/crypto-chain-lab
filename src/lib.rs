@@ -1,8 +1,11 @@
 pub mod aes128;
+pub mod bls;
 pub mod blockchain;
 pub mod common;
 pub mod ecc;
 pub mod keccak256;
+pub mod mpc;
 pub mod rsa;
+pub mod schnorr;
 pub mod sha256;
 pub mod wasm;

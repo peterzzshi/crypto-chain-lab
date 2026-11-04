@@ -17,6 +17,9 @@ src/
 ├── sha256/     SHA-256 (FIPS 180-4)
 ├── keccak256/  Keccak-256 (Ethereum variant, domain byte 0x01)
 ├── ecc/        Short Weierstrass ECC — generic + secp256k1 + ECDSA
+├── schnorr/    BIP-340 Schnorr signatures over secp256k1
+├── bls/        BLS12-381 pairing-based signatures
+├── mpc/        Shamir 2-of-3 threshold signing
 ├── aes128/     AES-128 block cipher (FIPS 197)
 ├── blockchain/ PoW chain built on the hashing primitives above
 ├── common/     Shared validation helpers
@@ -45,13 +48,11 @@ Low-s canonicalisation (BIP-146) is not enforced. Production libraries normalise
 half of the group order so that each signature has a unique representation. The cross-check test
 verifies our signatures against the `k256` reference implementation to confirm correctness.
 
-**Why ECDSA and not Schnorr (yet)?**
-Schnorr signatures over secp256k1 (BIP-340) are strictly better: linear, simpler to prove secure,
-natively support key/signature aggregation, and are what Bitcoin Taproot uses. ECDSA was
-standardised first and is still the signing algorithm in Ethereum (EIP-155, EIP-712). Both are
-planned here; ECDSA came first because it is the more complex algorithm to implement from scratch.
-
 **Schnorr vs ECDSA — key differences:**
+
+Both are implemented in this project. ECDSA was built first as the more complex algorithm to
+implement from scratch; Schnorr is strictly better in most dimensions.
+
 | Property | ECDSA | Schnorr (BIP-340) |
 |---|---|---|
 | Signature equation | `s = k⁻¹(z + rd) mod n` | `s = k + ex mod n` |
@@ -60,18 +61,45 @@ planned here; ECDSA came first because it is the more complex algorithm to imple
 | Proof model | Random oracle (ECDLP + ROM) | Clean provably secure in ROM |
 | Bitcoin status | Legacy (P2PKH, P2SH) | Taproot (P2TR) — BIP-340 |
 
-**BLS signatures (planned):**
-BLS (Boneh–Lynn–Shacham) over BLS12-381 supports both signature and key aggregation natively at
-the protocol level — n signers produce a single constant-size aggregate signature verifiable with
-n public keys. Used in Ethereum's consensus layer (validator attestations) and threshold-signing
-schemes. The cost is a pairing-based curve, making individual operations slower than secp256k1.
+The Schnorr implementation follows BIP-340: x-only public keys (32-byte compressed), tagged SHA-256
+for the nonce hash (`SHA-256("BIP0340/nonce" ‖ "BIP0340/nonce") ‖ private_key ‖ message`), and
+deterministic nonce derivation (no entropy source needed). The demo verifies against BIP-340 test
+vectors.
+
+**BLS signatures:**
+
+BLS (Boneh–Lynn–Shacham) over BLS12-381 supports signature aggregation natively at the protocol
+level — n signers produce a single constant-size aggregate signature verifiable with n public keys.
+Used in Ethereum's consensus layer (validator attestations) and threshold-signing schemes.
 
 | Property | ECDSA/secp256k1 | Schnorr/secp256k1 | BLS/BLS12-381 |
 |---|---|---|---|
-| Sig size | 64 bytes | 64 bytes | 96 bytes |
+| Sig size | 64 bytes | 64 bytes | 96 bytes (G2 point) |
 | Aggregation | None | MuSig2 (interactive) | Native, non-interactive |
 | Pairing needed | No | No | Yes |
 | Use case | Ethereum tx, EIP-712 | Bitcoin Taproot, MPC | Eth consensus, threshold |
+
+The implementation uses G1 public keys (48 bytes compressed) and G2 signatures (96 bytes
+compressed). The pairing check `e(G, sig_agg) = e(pubkey_agg, H(m))` verifies that the aggregate
+signature is valid for the aggregate public key. Hash-to-G2 uses a try-and-increment method: hash
+the message with an incrementing counter, interpret as x-coordinate, solve for y, and take the first
+valid point. This is simpler than hash-to-curve standards (RFC 9380) but sufficient for educational
+purposes.
+
+**Shamir 2-of-3 threshold signing:**
+
+Splits a secp256k1 private key into 3 shares using a degree-1 polynomial `f(x) = secret + a₁·x mod n`
+over the scalar field (group order n). Any 2 shares reconstruct the secret via Lagrange interpolation
+at x=0. One share reveals nothing (information-theoretic security).
+
+```
+Lagrange at x=0: secret = Σ yᵢ · Lᵢ(0) mod n
+where Lᵢ(0) = Π_{j≠i} (0 - xⱼ)/(xᵢ - xⱼ) mod n
+```
+
+Modular inverse uses Fermat's little theorem (`a⁻¹ = a^(n-2) mod n`, valid when n is prime).
+Coefficients are derived deterministically from SHA-256 for reproducibility in the demo. The
+reconstruction is verified by deriving the secp256k1 public key and signing with ECDSA.
 
 ---
 

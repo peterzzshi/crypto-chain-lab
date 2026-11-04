@@ -25,6 +25,7 @@ web/js/
 
 # Trunk build output
 web/dist/
+web/pkg/
 
 # CodeGraph index
 .codegraph/
